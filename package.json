@@ -3,7 +3,14 @@
   "version": "0.1.0",
   "description": "Free AI agents for coding and problem solving — in your browser and your terminal.",
   "type": "module",
-  "files": ["bin", "lib", "public", "server.js", "README.md", ".env.example"],
+  "files": [
+    "bin",
+    "lib",
+    "public",
+    "server.js",
+    "README.md",
+    ".env.example"
+  ],
   "bin": {
     "tinker": "bin/tinker.js"
   },
@@ -15,5 +22,10 @@
   "engines": {
     "node": ">=20.12"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shivalikathuria80-gif/tinker.git"
+  },
+  "homepage": "https://github.com/shivalikathuria80-gif/tinker"
 }

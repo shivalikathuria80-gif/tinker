@@ -6,7 +6,7 @@ It runs on OmniRoute combos only: your own combos plus the built-in auto/* ones 
 ## Install (terminal)
 
 ```bash
-npm install -g tinker-ai
+npm install -g github:shivalikathuria80-gif/tinker
 tinker
 ```
 The first time you run it, `tinker` asks for your OmniRoute URL and API key and saves them to `~/.tinker/.env`.
