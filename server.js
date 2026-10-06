@@ -23,7 +23,25 @@ async function readJson(req) {
   return JSON.parse(body);
 }
 
+// Simple rate limit so one person can't use up the shared Groq key.
+// ponytail: in-memory, resets on restart and is per server — swap for Redis or sign-in limits if Tinker grows.
+const LIMIT_PER_MINUTE = 20;
+const recentRequests = new Map(); // ip -> timestamps of requests in the last minute
+
+function isRateLimited(req) {
+  const ip = (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").split(",")[0].trim();
+  const now = Date.now();
+  const times = (recentRequests.get(ip) || []).filter((t) => now - t < 60_000);
+  times.push(now);
+  recentRequests.set(ip, times);
+  return times.length > LIMIT_PER_MINUTE;
+}
+
 async function handleChat(req, res) {
+  if (isRateLimited(req)) {
+    res.writeHead(429, { "Content-Type": "text/plain" }).end("Too many messages. Please wait a minute and try again.");
+    return;
+  }
   let payload;
   try {
     payload = await readJson(req);

@@ -1,53 +1,87 @@
 #!/usr/bin/env node
 // Tinker in the terminal. Type a message, get a streamed answer.
 // Commands: /model, /clear, /help, /exit
+//
+// By default it talks to the hosted Tinker server, so nobody needs an API key.
+// If GROQ_API_KEY is set (in tinker/.env or ~/.tinker/.env), it calls Groq directly instead.
 
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
-import { getModels, DEFAULT_MODEL, USER_ENV_PATH, isConfigured, streamChat } from "../lib/providers.js";
+import * as groq from "../lib/providers.js";
+
+const SERVER = (process.env.TINKER_SERVER || "https://tinker-ai.onrender.com").replace(/\/$/, "");
+const useServer = !groq.isConfigured();
 
 const dim = (s) => `\x1b[2m${s}\x1b[0m`;
 const accent = (s) => `\x1b[38;5;209m${s}\x1b[0m`;
 const bold = (s) => `\x1b[1m${s}\x1b[0m`;
 
-const rl = createInterface({ input: stdin, output: stdout });
+const LOGO = `
+       ▲
+      ▟█▙       ████████ ██ ███   ██ ██   ██ ███████ ██████
+  ◀▆▆███████▆▆▶    ██    ██ ████  ██ ██  ██  ██      ██   ██
+      ▜█▛          ██    ██ ██ ██ ██ █████   █████   ██████
+       ▼           ██    ██ ██  ████ ██  ██  ██      ██   ██
+                   ██    ██ ██   ███ ██   ██ ███████ ██   ██`;
 
-// First run (or `tinker setup`): ask for a Groq key and save it in ~/.tinker/.env
-if (!isConfigured() || process.argv[2] === "setup") {
-  console.log(`\n${accent("◆")} ${bold("Tinker setup")} ${dim("— get a free key at https://console.groq.com/keys")}\n`);
-  const apiKey = (await rl.question("Groq API key: ")).trim();
-  if (!apiKey) {
-    console.log("No key entered. Run `tinker setup` when you have one.");
-    process.exit(1);
-  }
-  mkdirSync(dirname(USER_ENV_PATH), { recursive: true });
-  writeFileSync(USER_ENV_PATH, `GROQ_API_KEY=${apiKey}\n`, { mode: 0o600 });
-  process.env.GROQ_API_KEY = apiKey;
-  console.log(dim(`  Saved to ${USER_ENV_PATH}\n`));
+// ---------- Talking to the hosted server ----------
+
+async function getServerModels() {
+  const response = await fetch(`${SERVER}/api/models`, { signal: AbortSignal.timeout(60_000) });
+  if (!response.ok) throw new Error(`server returned ${response.status}`);
+  return response.json();
 }
 
-const MODELS = await getModels();
-if (MODELS.length === 0) {
-  console.log(`\x1b[31mCouldn't load models from Groq.\x1b[0m Check your internet and your key with \`tinker setup\`.`);
+async function streamFromServer({ modelId, messages, onToken }) {
+  const response = await fetch(`${SERVER}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model: modelId, messages }),
+  });
+  if (!response.ok) throw new Error(await response.text());
+  const decoder = new TextDecoder();
+  let full = "";
+  for await (const chunk of response.body) {
+    const text = decoder.decode(chunk, { stream: true });
+    full += text;
+    if (!full.includes("[[error]]")) onToken(text);
+  }
+  if (full.includes("[[error]]")) throw new Error(full.split("[[error]]")[1].trim());
+  return full;
+}
+
+// ---------- Start ----------
+
+console.log(accent(LOGO));
+console.log(dim("\n  Free AI agents in your terminal\n"));
+
+let MODELS;
+let modelId;
+try {
+  if (useServer) {
+    stdout.write(dim("  Connecting… (the first start can take up to a minute)\r"));
+    const { models, default: fallback } = await getServerModels();
+    MODELS = models;
+    modelId = fallback;
+    stdout.write(" ".repeat(70) + "\r");
+  } else {
+    MODELS = await groq.getModels();
+    modelId = MODELS.some((m) => m.id === groq.DEFAULT_MODEL) ? groq.DEFAULT_MODEL : MODELS[0]?.id;
+  }
+} catch (error) {
+  console.log(`\x1b[31mCouldn't connect to Tinker\x1b[0m (${error.message}). Check your internet and try again.`);
   process.exit(1);
 }
+if (!MODELS?.length) {
+  console.log("\x1b[31mNo models available right now.\x1b[0m Please try again later.");
+  process.exit(1);
+}
+if (process.argv.includes("--model")) modelId = process.argv[process.argv.indexOf("--model") + 1];
 
-let modelId = process.argv.includes("--model")
-  ? process.argv[process.argv.indexOf("--model") + 1]
-  : MODELS.some((m) => m.id === DEFAULT_MODEL) ? DEFAULT_MODEL : MODELS[0].id;
+const streamChat = useServer ? streamFromServer : groq.streamChat;
+const rl = createInterface({ input: stdin, output: stdout });
 let history = [];
 
-function printModels() {
-  MODELS.forEach((m, i) => {
-    const status = isConfigured(m.provider) ? "" : dim("  (no key)");
-    const current = m.id === modelId ? accent(" ●") : "  ";
-    console.log(`${current} ${i + 1}. ${m.label} ${dim(`· ${m.provider} · ${m.note}`)}${status}`);
-  });
-}
-
-console.log(`\n${accent("◆")} ${bold("Tinker")} ${dim("— free AI agents in your terminal")}`);
 console.log(dim(`  model: ${modelId}   ·   /model to switch · /clear · /exit\n`));
 
 while (true) {
@@ -70,7 +104,7 @@ while (true) {
     continue;
   }
   if (input === "/model") {
-    printModels();
+    MODELS.forEach((m, i) => console.log(`${m.id === modelId ? accent(" ●") : "  "} ${i + 1}. ${m.label} ${dim(`· ${m.note}`)}`));
     const pick = Number(await rl.question(dim("  Pick a number: ")));
     if (MODELS[pick - 1]) modelId = MODELS[pick - 1].id;
     console.log(dim(`  Using ${modelId}\n`));

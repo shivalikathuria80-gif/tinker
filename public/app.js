@@ -212,7 +212,10 @@ async function sendMessage(text) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ model: els.model.value, messages: chat.messages.slice(0, -1) }),
     });
-    if (!response.ok) throw new Error(`Server error ${response.status}`);
+    if (!response.ok) {
+      reply.content = `[[error]] ${await response.text()}`;
+      throw null;
+    }
 
     // Streaming: read the reply piece by piece and show it as it arrives.
     const reader = response.body.getReader();
@@ -226,7 +229,7 @@ async function sendMessage(text) {
     }
     if (!reply.content.trim()) reply.content = "[[error]] The model returned an empty reply. Try again or switch models.";
   } catch (error) {
-    reply.content += `\n\n[[error]] Couldn't reach the Tinker server (${error.message}). Is \`npm run dev\` running?`;
+    if (error) reply.content += `\n\n[[error]] Couldn't reach the Tinker server (${error.message}). Check your internet and try again.`;
   }
 
   fillAssistant(replyEl, reply.content);
