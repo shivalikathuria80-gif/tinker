@@ -1,7 +1,7 @@
 # Tinker
 
 Free AI agents for coding and problem solving, in your **browser** and your **terminal**.
-It runs on OmniRoute combos only: your own combos plus the built-in auto/* ones (loaded automatically).
+It runs on every chat model available on Groq (loaded automatically), like Qwen and GPT-OSS.
 
 ## Install (terminal)
 
@@ -9,14 +9,14 @@ It runs on OmniRoute combos only: your own combos plus the built-in auto/* ones 
 npm install -g github:shivalikathuria80-gif/tinker
 tinker
 ```
-The first time you run it, `tinker` asks for your OmniRoute URL and API key and saves them to `~/.tinker/.env`.
-Run `tinker setup` to change them. Inside Tinker you can use `/model`, `/clear` and `/exit`.
+The first time you run it, `tinker` asks for a free Groq API key (https://console.groq.com/keys) and saves it to `~/.tinker/.env`.
+Run `tinker setup` to change it. Inside Tinker you can use `/model`, `/clear` and `/exit`.
 
-Requires Node 20.12+ and a running OmniRoute gateway.
+Requires Node 20.12+.
 
 ## Run from source
 
-1. Copy `.env.example` to `.env` and add `OMNIROUTE_BASE_URL` + `OMNIROUTE_API_KEY`.
+1. Copy `.env.example` to `.env` and add your `GROQ_API_KEY`.
 2. No `npm install` is needed. Tinker uses only built-in Node features.
 
 ## Web
@@ -35,8 +35,8 @@ tinker
 
 ## How it works
 
-Browser → `server.js` (/api/chat) → OmniRoute → streamed back to the browser.
+Browser → `server.js` (/api/chat) → Groq → streamed back to the browser.
 The terminal app calls the providers directly through `lib/providers.js`.
 API keys stay in `.env` and never reach the browser.
 
-Models are your OmniRoute combos; restart the server after adding or changing a combo.
+Models come from Groq automatically. Speech and safety-filter models are hidden because they cannot chat.

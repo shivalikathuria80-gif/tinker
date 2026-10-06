@@ -14,25 +14,23 @@ const bold = (s) => `\x1b[1m${s}\x1b[0m`;
 
 const rl = createInterface({ input: stdin, output: stdout });
 
-// First run (or `tinker setup`): ask for OmniRoute details and save them in ~/.tinker/.env
+// First run (or `tinker setup`): ask for a Groq key and save it in ~/.tinker/.env
 if (!isConfigured() || process.argv[2] === "setup") {
-  console.log(`\n${accent("◆")} ${bold("Tinker setup")} ${dim("— connect your OmniRoute gateway")}\n`);
-  const baseUrl = (await rl.question(`OmniRoute URL ${dim("(http://localhost:20128/v1)")}: `)).trim() || "http://localhost:20128/v1";
-  const apiKey = (await rl.question("OmniRoute API key: ")).trim();
+  console.log(`\n${accent("◆")} ${bold("Tinker setup")} ${dim("— get a free key at https://console.groq.com/keys")}\n`);
+  const apiKey = (await rl.question("Groq API key: ")).trim();
   if (!apiKey) {
     console.log("No key entered. Run `tinker setup` when you have one.");
     process.exit(1);
   }
   mkdirSync(dirname(USER_ENV_PATH), { recursive: true });
-  writeFileSync(USER_ENV_PATH, `OMNIROUTE_BASE_URL=${baseUrl}\nOMNIROUTE_API_KEY=${apiKey}\n`, { mode: 0o600 });
-  process.env.OMNIROUTE_BASE_URL = baseUrl;
-  process.env.OMNIROUTE_API_KEY = apiKey;
+  writeFileSync(USER_ENV_PATH, `GROQ_API_KEY=${apiKey}\n`, { mode: 0o600 });
+  process.env.GROQ_API_KEY = apiKey;
   console.log(dim(`  Saved to ${USER_ENV_PATH}\n`));
 }
 
 const MODELS = await getModels();
 if (MODELS.length === 0) {
-  console.log(`\x1b[31mCouldn't load models from OmniRoute.\x1b[0m Is it running? Check the URL/key with \`tinker setup\`.`);
+  console.log(`\x1b[31mCouldn't load models from Groq.\x1b[0m Check your internet and your key with \`tinker setup\`.`);
   process.exit(1);
 }
 

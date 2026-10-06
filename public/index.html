@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Tinker — free AI agents for code and problems</title>
-  <meta name="description" content="Tinker gives you powerful, free AI agents (Claude, GPT, Gemini and more via OmniRoute combos) in your browser and your terminal." />
+  <meta name="description" content="Tinker gives you powerful, free AI agents (Qwen, GPT-OSS and more on Groq) in your browser and your terminal." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;650&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/styles.css" />
@@ -27,7 +27,7 @@
     <section class="wrap hero">
       <span class="pill">Free models · Web + Terminal</span>
       <h1>Powerful AI agents that cost you nothing.</h1>
-      <p>Tinker pairs you with OmniRoute combos that route across Claude, GPT, Gemini and more to write code, fix bugs and work through hard problems in the browser or the terminal.</p>
+      <p>Tinker pairs you with fast, free models on Groq like Qwen and GPT-OSS to write code, fix bugs and work through hard problems in the browser or the terminal.</p>
       <div class="hero-cta">
         <a class="btn btn-primary" href="/app">Start chatting
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
@@ -38,7 +38,7 @@
       <div class="terminal" role="img" aria-label="Example terminal session with Tinker fixing a bug">
         <div class="terminal-bar"><span></span><span></span><span></span></div>
 <pre><span class="t-dim">$</span> tinker
-<span class="t-acc">◆ Tinker</span> <span class="t-dim">— model: Tinker AI Model Bundle</span>
+<span class="t-acc">◆ Tinker</span> <span class="t-dim">— model: qwen/qwen3.8-27b</span>
 
 <span class="t-acc">›</span> why does my fetch return undefined?
 
@@ -63,7 +63,7 @@ Your function never returns the promise. Add <span class="t-ok">return</span>:
         <article class="card">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg>
           <h3>Problem solver</h3>
-          <p>Reasoning combos think step by step through math, logic and planning.</p>
+          <p>Reasoning models like Qwen think step by step through math, logic and planning.</p>
         </article>
         <article class="card">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/></svg>
@@ -73,7 +73,7 @@ Your function never returns the promise. Add <span class="t-ok">return</span>:
         <article class="card">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M13 2L3 14h9l-1 8 10-12h-9z"/></svg>
           <h3>Fast and free</h3>
-          <p>Combos fall back to the next model automatically, so you rarely hit a limit. Answers stream in instantly.</p>
+          <p>Runs on Groq, one of the fastest AI providers, with a generous free tier. Answers stream in instantly.</p>
         </article>
       </div>
     </section>
@@ -99,13 +99,15 @@ Your function never returns the promise. Add <span class="t-ok">return</span>:
 
     <section id="models" class="wrap section" aria-labelledby="models-title">
       <h2 id="models-title">Models</h2>
-      <p class="lead">Switch any time, mid-conversation.</p>
+      <p class="lead">Every chat model on Groq, loaded automatically. Switch any time, mid-conversation.</p>
       <div style="overflow-x:auto">
         <table class="models">
           <thead><tr><th scope="col">Model</th><th scope="col">Provider</th><th scope="col">Best for</th></tr></thead>
           <tbody>
-            <tr><td>Tinker AI Model Bundle (default) + your other combos</td><td><span class="tag">combo</span></td><td>Your own picks, with fallback</td></tr>
-            <tr><td>auto/best-coding, auto/best-reasoning, auto/best-fast …</td><td><span class="tag">built-in</span></td><td>OmniRoute's pre-made combos</td></tr>
+            <tr><td>qwen/qwen3.8-27b</td><td><span class="tag">groq</span></td><td>Reasoning + code (default)</td></tr>
+            <tr><td>openai/gpt-oss-120b</td><td><span class="tag">groq</span></td><td>Hard problems</td></tr>
+            <tr><td>openai/gpt-oss-20b</td><td><span class="tag">groq</span></td><td>Fast answers</td></tr>
+            <tr><td>allam-2-7b</td><td><span class="tag">groq</span></td><td>Arabic + English</td></tr>
           </tbody>
         </table>
       </div>
