@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tinker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;650&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="app" id="app">
+    <aside class="sidebar" id="sidebar" aria-label="Chat history">
+      <div class="sidebar-top">
+        <div class="row">
+          <a href="/" class="logo">
+            <svg class="logo-mark" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l3 7 7 3-7 3-3 7-3-7-7-3 7-3z"/></svg>
+            Tinker
+          </a>
+        </div>
+        <button class="btn" id="new-chat" type="button">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          New chat
+        </button>
+      </div>
+      <nav class="history">
+        <h2>Recent</h2>
+        <div id="history-list"></div>
+      </nav>
+      <div class="sidebar-bottom">
+        <button class="btn" type="button" id="sign-in">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+          Sign in
+        </button>
+      </div>
+    </aside>
+    <div class="scrim" id="scrim"></div>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="icon-btn menu-btn" id="menu" type="button" aria-label="Open chat history" aria-controls="sidebar" aria-expanded="false">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+        <label for="model" class="sr-only">Model</label>
+        <select id="model" class="model"></select>
+      </header>
+
+      <section class="messages" id="messages" aria-live="polite"></section>
+
+      <form class="composer-wrap" id="composer">
+        <div class="composer">
+          <label for="input" class="sr-only">Message</label>
+          <textarea id="input" rows="1" placeholder="Ask Tinker to build, fix or explain anything…"></textarea>
+          <button class="btn btn-primary" id="send" type="submit" aria-label="Send message">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+          </button>
+        </div>
+        <p class="hint">Enter to send · Shift+Enter for a new line · Chats are saved in this browser</p>
+      </form>
+    </main>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>

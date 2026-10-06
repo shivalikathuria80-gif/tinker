@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tinker — free AI agents for code and problems</title>
+  <meta name="description" content="Tinker gives you powerful, free AI agents (Claude, GPT, Gemini and more via OmniRoute combos) in your browser and your terminal." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;650&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="wrap nav">
+    <a href="/" class="logo" aria-label="Tinker home">
+      <svg class="logo-mark" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l3 7 7 3-7 3-3 7-3-7-7-3 7-3z"/></svg>
+      Tinker
+    </a>
+    <nav class="nav-links" aria-label="Main">
+      <a class="text-link" href="#install">Install</a>
+      <a class="text-link" href="#models">Models</a>
+      <button class="btn" type="button" onclick="alert('Sign in is coming soon.')">Sign in</button>
+      <a class="btn btn-primary" href="/app">Open app</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="wrap hero">
+      <span class="pill">Free models · Web + Terminal</span>
+      <h1>Powerful AI agents that cost you nothing.</h1>
+      <p>Tinker pairs you with OmniRoute combos that route across Claude, GPT, Gemini and more to write code, fix bugs and work through hard problems in the browser or the terminal.</p>
+      <div class="hero-cta">
+        <a class="btn btn-primary" href="/app">Start chatting
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </a>
+        <a class="btn" href="#install">Install the CLI</a>
+      </div>
+
+      <div class="terminal" role="img" aria-label="Example terminal session with Tinker fixing a bug">
+        <div class="terminal-bar"><span></span><span></span><span></span></div>
+<pre><span class="t-dim">$</span> tinker
+<span class="t-acc">◆ Tinker</span> <span class="t-dim">— model: Tinker AI Model Bundle</span>
+
+<span class="t-acc">›</span> why does my fetch return undefined?
+
+Your function never returns the promise. Add <span class="t-ok">return</span>:
+
+  <span class="t-dim">async function</span> getUser(id) {
+    <span class="t-ok">return</span> (await fetch(`/api/users/${id}`)).json();
+  }
+</pre>
+      </div>
+    </section>
+
+    <section class="wrap section" aria-labelledby="features-title">
+      <h2 id="features-title">Built like the tools you love, without the price</h2>
+      <p class="lead">Inspired by Claude Code, Cowork and Cursor. A simple chat that's really good at coding.</p>
+      <div class="grid">
+        <article class="card">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg>
+          <h3>Coding partner</h3>
+          <p>Write, explain and debug code in any language with clean, copyable answers.</p>
+        </article>
+        <article class="card">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg>
+          <h3>Problem solver</h3>
+          <p>Reasoning combos think step by step through math, logic and planning.</p>
+        </article>
+        <article class="card">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/></svg>
+          <h3>Web + terminal</h3>
+          <p>The same agents in your browser and in your shell. Use whichever fits the moment.</p>
+        </article>
+        <article class="card">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M13 2L3 14h9l-1 8 10-12h-9z"/></svg>
+          <h3>Fast and free</h3>
+          <p>Combos fall back to the next model automatically, so you rarely hit a limit. Answers stream in instantly.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="install" class="wrap section" aria-labelledby="install-title">
+      <h2 id="install-title">Get started in a minute</h2>
+      <p class="lead">Use the web app or install the <code>tinker</code> command in your terminal.</p>
+      <div class="install">
+        <div class="card">
+          <h3>Terminal</h3>
+          <p>Install once with Node 20.12+, then run it anywhere:</p>
+          <div class="codeline"><code>npm install -g tinker-ai</code><button class="copy" data-copy="npm install -g tinker-ai">Copy</button></div>
+          <div class="codeline"><code>tinker</code><button class="copy" data-copy="tinker">Copy</button></div>
+        </div>
+        <div class="card">
+          <h3>Web</h3>
+          <p>Start the server, then open the app in your browser:</p>
+          <div class="codeline"><code>npm run dev</code><button class="copy" data-copy="npm run dev">Copy</button></div>
+          <div class="codeline"><code>http://localhost:3000/app</code><button class="copy" data-copy="http://localhost:3000/app">Copy</button></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="models" class="wrap section" aria-labelledby="models-title">
+      <h2 id="models-title">Models</h2>
+      <p class="lead">Switch any time, mid-conversation.</p>
+      <div style="overflow-x:auto">
+        <table class="models">
+          <thead><tr><th scope="col">Model</th><th scope="col">Provider</th><th scope="col">Best for</th></tr></thead>
+          <tbody>
+            <tr><td>Tinker AI Model Bundle (default) + your other combos</td><td><span class="tag">combo</span></td><td>Your own picks, with fallback</td></tr>
+            <tr><td>auto/best-coding, auto/best-reasoning, auto/best-fast …</td><td><span class="tag">built-in</span></td><td>OmniRoute's pre-made combos</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap">Tinker · free AI agents for everyone</div>
+  </footer>
+
+  <script>
+    document.querySelectorAll("[data-copy]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        await navigator.clipboard.writeText(button.dataset.copy);
+        button.textContent = "Copied";
+        setTimeout(() => (button.textContent = "Copy"), 1500);
+      });
+    });
+  </script>
+</body>
+</html>

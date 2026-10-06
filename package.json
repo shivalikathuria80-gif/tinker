@@ -1,0 +1,19 @@
+{
+  "name": "tinker-ai",
+  "version": "0.1.0",
+  "description": "Free AI agents for coding and problem solving — in your browser and your terminal.",
+  "type": "module",
+  "files": ["bin", "lib", "public", "server.js", "README.md", ".env.example"],
+  "bin": {
+    "tinker": "bin/tinker.js"
+  },
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "cli": "node bin/tinker.js"
+  },
+  "engines": {
+    "node": ">=20.12"
+  },
+  "license": "MIT"
+}
