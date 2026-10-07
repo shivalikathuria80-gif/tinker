@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Tinker in the terminal. Type a message, get an answer.
-// Commands: /model, /skill, /connect, /clear, /help, /exit
+// Commands: /model, /skill, /connect, /undo, /clear, /help, /exit
+// Start with --resume to continue the last chat in this folder.
 // MCP servers: list them in ~/.tinker/mcp.json as [{ "name": "...", "url": "https://...", "token": "optional" }]
 //
 // By default the AI runs through the hosted Tinker server, so nobody needs an API key.
@@ -12,9 +13,11 @@ import { stdin, stdout } from "node:process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
+import { randomUUID } from "node:crypto";
 import * as groq from "../lib/providers.js";
 import { CONNECTORS, buildTools } from "../lib/connectors.js";
-import { localTools } from "../lib/local-tools.js";
+import { localTools, undoLast } from "../lib/local-tools.js";
+import { saveSession, latestSession } from "../lib/sessions.js";
 
 const SERVER = (process.env.TINKER_SERVER || "https://tinker-ai.onrender.com").replace(/\/$/, "");
 const useServer = !groq.isConfigured();
@@ -107,6 +110,24 @@ const ask = async (question) => /^y/i.test(await rl.question(`${accent("  ?")} $
 const onStatus = (text) => console.log(dim(`  ● ${text}`));
 
 let history = [];
+const undoStack = []; // file changes Tinker made in this chat, for /undo (saved with the chat)
+
+// Each chat is saved after every answer, so `tinker --resume` can pick it up later.
+let session = { id: randomUUID(), folder: process.cwd(), messages: history };
+if (process.argv.includes("--resume")) {
+  const previous = await latestSession(process.cwd());
+  if (previous) {
+    session = previous;
+    history = previous.messages;
+    undoStack.push(...(previous.undo || []));
+    if (!process.argv.includes("--model") && MODELS.some((m) => m.id === previous.model)) modelId = previous.model;
+    const lastQuestion = [...history].reverse().find((m) => m.role === "user")?.content || "";
+    console.log(dim(`  Resumed chat from ${new Date(previous.updated).toLocaleString()} · ${history.length} messages`));
+    if (lastQuestion) console.log(dim(`  Last question: ${lastQuestion.slice(0, 80)}${lastQuestion.length > 80 ? "…" : ""}`));
+  } else {
+    console.log(dim("  No earlier chat in this folder, so starting a new one."));
+  }
+}
 let skill = null;
 let connectors = ["files"];
 let mcp = [];
@@ -150,11 +171,29 @@ while (true) {
 
   if (input === "/exit" || input === "/quit") break;
   if (input === "/help") {
-    console.log(dim("  /model    switch model\n  /skill    pick a skill\n  /connect  turn connectors on/off\n  /clear    start a new chat\n  /exit     quit\n"));
+    console.log(dim([
+      "  /model    switch model",
+      "  /skill    pick a skill",
+      "  /connect  turn connectors on/off",
+      "  /undo     take back Tinker's last file change",
+      "  /clear    start a new chat",
+      "  /exit     quit",
+      "",
+      "  Start with `tinker --resume` to continue your last chat in this folder.",
+      "",
+    ].join("\n")));
+    continue;
+  }
+  if (input === "/undo") {
+    console.log(dim(`  ${await undoLast(undoStack, ask)}`));
+    session.undo = undoStack.slice(-20);
+    await saveSession(session).catch(() => {});
+    console.log();
     continue;
   }
   if (input === "/clear") {
     history = [];
+    session = { id: randomUUID(), folder: process.cwd(), messages: history };
     console.log(dim("  New chat started.\n"));
     continue;
   }
@@ -187,7 +226,7 @@ while (true) {
   try {
     const { tools, errors } = await buildTools({ connectors, mcp });
     errors.forEach(onStatus);
-    if (connectors.includes("files")) tools.push(...localTools(ask));
+    if (connectors.includes("files")) tools.push(...localTools(ask, process.cwd(), undoStack));
     const builtIns = groq.builtInTools(modelId, connectors, onStatus);
     const onToken = (t) => stdout.write(t);
 
@@ -202,6 +241,10 @@ while (true) {
       reply = await groq.streamChat({ modelId, messages: history, skill: effectiveSkill(), onToken, onStatus });
     }
     history.push({ role: "assistant", content: reply });
+    session.messages = history;
+    session.model = modelId;
+    session.undo = undoStack.slice(-20); // ponytail: keeps full file copies; fine for normal source files
+    await saveSession(session).catch((error) => console.log(dim(`  (Couldn't save this chat: ${error.message})`)));
   } catch (error) {
     history.pop();
     console.log(`\x1b[31mError:\x1b[0m ${error.message}`);

@@ -10,7 +10,10 @@ npm install -g github:shivalikathuria80-gif/tinker
 tinker
 ```
 No API key needed: it talks to the hosted Tinker server. Want to use your own Groq key instead? Put `GROQ_API_KEY=...` in `~/.tinker/.env`.
-Inside Tinker you can use `/model`, `/clear` and `/exit`.
+Inside Tinker you can use `/model`, `/skill`, `/connect`, `/undo`, `/clear` and `/exit`.
+
+- **`/undo`** takes back Tinker's last file change (or deletes a file it created). It asks first if you edited the file yourself since.
+- **`tinker --resume`** continues your last chat in the current folder. Chats are saved in `~/.tinker/sessions/` (newest 30 kept), including the undo history.
 
 Requires Node 20.12+.
 
@@ -74,4 +77,4 @@ Groq's free tier allows only a few thousand tokens per minute, so Tinker sends t
 ```bash
 npm test
 ```
-Checks that the local file tools stay inside the project folder and respect "no", the change preview (diff), and that long chats are trimmed to fit the free limit.
+Checks undo, saved chats, that the local file tools stay inside the project folder and respect "no", the change preview (diff), and that long chats are trimmed to fit the free limit.
