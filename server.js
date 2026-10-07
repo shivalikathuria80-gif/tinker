@@ -8,7 +8,8 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { join, extname, dirname, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
-import { getModels, DEFAULT_MODEL, isConfigured, streamChat } from "./lib/providers.js";
+import { getModels, DEFAULT_MODEL, SKILLS, isConfigured, streamChat } from "./lib/providers.js";
+import { CONNECTORS } from "./lib/connectors.js";
 
 const PUBLIC_DIR = join(dirname(fileURLToPath(import.meta.url)), "public");
 const PORT = process.env.PORT || 3000;
@@ -50,10 +51,22 @@ async function handleChat(req, res) {
     return;
   }
 
-  // Only pass through plain user/assistant text messages.
+  // Only pass through plain user/assistant text messages (minus our tool status lines).
   const messages = (Array.isArray(payload.messages) ? payload.messages : [])
     .filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
+    .map((m) => ({ role: m.role, content: m.content.replace(/^\[\[tool\]\].*\n?/gm, "") }))
     .slice(-40);
+
+  // Skill: a built-in id, or a custom { name, instructions } written by the user.
+  const preset = SKILLS.find((s) => s.id === payload.skill?.id);
+  const skill = preset || (typeof payload.skill?.instructions === "string"
+    ? { name: String(payload.skill.name || "Custom").slice(0, 60), instructions: payload.skill.instructions.slice(0, 4000) }
+    : null);
+  const connectors = (Array.isArray(payload.connectors) ? payload.connectors : []).filter((id) => CONNECTORS.some((c) => c.id === id));
+  const mcp = (Array.isArray(payload.mcp) ? payload.mcp : [])
+    .filter((s) => typeof s?.url === "string")
+    .slice(0, 5)
+    .map((s) => ({ name: String(s.name || "MCP").slice(0, 40), url: s.url, token: typeof s.token === "string" ? s.token : "" }));
 
   res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-cache" });
   const controller = new AbortController();
@@ -64,7 +77,11 @@ async function handleChat(req, res) {
       modelId: payload.model || DEFAULT_MODEL,
       messages,
       signal: controller.signal,
+      skill,
+      connectors,
+      mcp,
       onToken: (token) => res.write(token),
+      onStatus: (text) => res.write(`[[tool]] ${text.replace(/\n/g, " ")}\n`),
     });
   } catch (error) {
     if (!controller.signal.aborted) res.write(`\n\n[[error]] ${error.message}`);
@@ -94,7 +111,8 @@ createServer(async (req, res) => {
   if (pathname === "/api/models") {
     const list = (await getModels()).map((m) => ({ ...m, ready: isConfigured(m.provider) }));
     res.writeHead(200, { "Content-Type": "application/json" });
-    return res.end(JSON.stringify({ models: list, default: list.some((m) => m.id === DEFAULT_MODEL) ? DEFAULT_MODEL : list[0]?.id }));
+    const skills = SKILLS.map(({ id, name, description }) => ({ id, name, description }));
+    return res.end(JSON.stringify({ models: list, skills, connectors: CONNECTORS, default: list.some((m) => m.id === DEFAULT_MODEL) ? DEFAULT_MODEL : list[0]?.id }));
   }
   return serveFile(pathname, res);
 }).listen(PORT, () => {

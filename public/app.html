@@ -43,11 +43,16 @@
         </button>
         <label for="model" class="sr-only">Model</label>
         <select id="model" class="model"></select>
+        <button class="btn customize-btn" id="customize" type="button" aria-haspopup="dialog">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+          Customize
+        </button>
       </header>
 
       <section class="messages" id="messages" aria-live="polite"></section>
 
       <form class="composer-wrap" id="composer">
+        <p class="active-tools" id="active-tools"></p>
         <div class="composer">
           <label for="input" class="sr-only">Message</label>
           <textarea id="input" rows="1" placeholder="Ask Tinker to build, fix or explain anything…"></textarea>
@@ -59,6 +64,58 @@
       </form>
     </main>
   </div>
+  <dialog class="panel" id="panel" aria-labelledby="panel-title">
+    <div class="panel-head">
+      <h2 id="panel-title">Customize Tinker</h2>
+      <button class="icon-btn" type="button" id="panel-close" aria-label="Close">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+
+    <section aria-labelledby="plugins-title">
+      <h3 id="plugins-title">Plugins</h3>
+      <p class="muted">One click bundles of a skill and connectors.</p>
+      <div id="plugin-list" class="option-list"></div>
+    </section>
+
+    <section aria-labelledby="skills-title">
+      <h3 id="skills-title">Skills</h3>
+      <p class="muted">Change how Tinker behaves. One skill at a time.</p>
+      <div id="skill-list" class="option-list" role="radiogroup" aria-labelledby="skills-title"></div>
+      <details class="add-form">
+        <summary>Create your own skill</summary>
+        <form id="skill-form">
+          <label for="skill-name">Name</label>
+          <input id="skill-name" required maxlength="60" placeholder="e.g. SQL Helper" />
+          <label for="skill-instructions">Instructions</label>
+          <textarea id="skill-instructions" required maxlength="4000" rows="4" placeholder="e.g. You are an expert in PostgreSQL. Always explain query plans."></textarea>
+          <button class="btn btn-primary" type="submit">Save skill</button>
+        </form>
+      </details>
+    </section>
+
+    <section aria-labelledby="connectors-title">
+      <h3 id="connectors-title">Connectors</h3>
+      <p class="muted">Let Tinker pull in outside information. Works best with GPT-OSS and Qwen models.</p>
+      <div id="connector-list" class="option-list"></div>
+      <h4>MCP servers</h4>
+      <p class="muted">Connect apps that offer an MCP server URL (Streamable HTTP) to automate your work.</p>
+      <div id="mcp-list" class="option-list"></div>
+      <details class="add-form">
+        <summary>Add an MCP server</summary>
+        <form id="mcp-form">
+          <label for="mcp-name">Name</label>
+          <input id="mcp-name" required maxlength="40" placeholder="e.g. DeepWiki" />
+          <label for="mcp-url">Server URL</label>
+          <input id="mcp-url" type="url" required placeholder="https://mcp.deepwiki.com/mcp" />
+          <label for="mcp-token">Access token (optional)</label>
+          <input id="mcp-token" type="password" autocomplete="off" placeholder="Only if the server needs one" />
+          <p class="muted small">Tokens are saved in this browser and sent through the Tinker server only when you chat.</p>
+          <button class="btn btn-primary" type="submit">Add server</button>
+        </form>
+      </details>
+    </section>
+  </dialog>
   <script src="/app.js"></script>
 </body>
 </html>

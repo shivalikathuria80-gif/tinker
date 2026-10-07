@@ -151,7 +151,11 @@ function messageElement(message) {
 
 function fillAssistant(div, content) {
   const [answer, error] = content.split("[[error]]");
-  div.innerHTML = renderMarkdown(answer);
+  // Lines starting with [[tool]] are status updates from connectors ("Reading example.com").
+  const statuses = answer.match(/^\[\[tool\]\] .*$/gm) || [];
+  const text = answer.replace(/^\[\[tool\]\] .*\n?/gm, "");
+  div.innerHTML =
+    statuses.map((s) => `<p class="tool-status">${escapeHtml(s.slice(9))}</p>`).join("") + renderMarkdown(text);
   if (error) div.innerHTML += `<div class="msg-error" role="alert">Something failed: ${escapeHtml(error.trim())}</div>`;
 }
 
@@ -210,7 +214,7 @@ async function sendMessage(text) {
     const response = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: els.model.value, messages: chat.messages.slice(0, -1) }),
+      body: JSON.stringify({ model: els.model.value, messages: chat.messages.slice(0, -1), ...requestExtras() }),
     });
     if (!response.ok) {
       reply.content = `[[error]] ${await response.text()}`;
@@ -246,7 +250,11 @@ function setStreaming(value) {
 
 async function loadModels() {
   try {
-    const { models, default: fallback } = await (await fetch("/api/models")).json();
+    const { models, skills = [], connectors = [], default: fallback } = await (await fetch("/api/models")).json();
+    presetSkills = skills;
+    connectorList = connectors;
+    renderPanel();
+    renderActive();
     const saved = localStorage.getItem("tinker.model");
     els.model.innerHTML = models
       .map((m) => `<option value="${m.id}">${m.label} · ${m.provider}${m.ready ? "" : " (no key)"}</option>`)
@@ -256,6 +264,185 @@ async function loadModels() {
     els.model.innerHTML = `<option>Server offline</option>`;
   }
 }
+
+// ---------- Skills, connectors and plugins ----------
+// Saved in this browser. Sent with every message so the server knows what to use.
+
+const SETTINGS_KEY = "tinker.settings";
+const PLUGINS = [
+  { id: "researcher", name: "Researcher", description: "Searches the web and reads pages", skill: null, connectors: ["search", "web"] },
+  { id: "repo-explorer", name: "Repo Explorer", description: "Reads GitHub repos and reviews the code", skill: "reviewer", connectors: ["github", "web"] },
+  { id: "bug-hunter", name: "Bug Hunter", description: "Debugs errors and looks up docs online", skill: "debugger", connectors: ["web", "search"] },
+  { id: "teacher", name: "Teacher", description: "Explains things simply, with web lookups", skill: "explain", connectors: ["web"] },
+];
+
+let presetSkills = [];
+let connectorList = [];
+let settings = loadSettings();
+
+function loadSettings() {
+  const empty = { skillId: null, customSkills: [], connectors: [], mcp: [], plugins: [] };
+  try {
+    return { ...empty, ...JSON.parse(localStorage.getItem(SETTINGS_KEY)) };
+  } catch {
+    return empty;
+  }
+}
+
+function saveSettings() {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  } catch {
+    // storage blocked — settings last until the page closes
+  }
+  renderPanel();
+  renderActive();
+}
+
+const allSkills = () => [...presetSkills, ...settings.customSkills];
+const activeSkill = () => allSkills().find((s) => s.id === settings.skillId);
+
+function requestExtras() {
+  const skill = activeSkill();
+  return {
+    skill: skill ? (skill.custom ? { name: skill.name, instructions: skill.instructions } : { id: skill.id }) : null,
+    connectors: settings.connectors,
+    mcp: settings.mcp.filter((s) => s.enabled),
+  };
+}
+
+function optionRow({ type, name, checked, title, description, onChange, onRemove }) {
+  const label = document.createElement("label");
+  label.className = "option";
+  label.innerHTML = `<input type="${type}" ${name ? `name="${name}"` : ""} ${checked ? "checked" : ""} />
+    <span class="text"><strong></strong><span class="desc"></span></span>`;
+  label.querySelector("strong").textContent = title;
+  label.querySelector(".desc").textContent = description;
+  label.querySelector("input").onchange = (e) => onChange(e.target.checked);
+  if (onRemove) {
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "remove";
+    remove.textContent = "✕";
+    remove.setAttribute("aria-label", `Remove ${title}`);
+    remove.onclick = (e) => {
+      e.preventDefault();
+      if (confirm(`Remove "${title}"?`)) onRemove();
+    };
+    label.appendChild(remove);
+  }
+  return label;
+}
+
+function togglePlugin(plugin, on) {
+  settings.plugins = settings.plugins.filter((id) => id !== plugin.id);
+  if (on) {
+    settings.plugins.push(plugin.id);
+    settings.connectors = [...new Set([...settings.connectors, ...plugin.connectors])];
+    if (plugin.skill) settings.skillId = plugin.skill;
+  } else {
+    // keep connectors another active plugin still needs
+    const stillNeeded = PLUGINS.filter((p) => settings.plugins.includes(p.id)).flatMap((p) => p.connectors);
+    settings.connectors = settings.connectors.filter((c) => !plugin.connectors.includes(c) || stillNeeded.includes(c));
+    if (plugin.skill && settings.skillId === plugin.skill) settings.skillId = null;
+  }
+  saveSettings();
+}
+
+function renderPanel() {
+  const pluginList = document.getElementById("plugin-list");
+  pluginList.replaceChildren(...PLUGINS.map((plugin) => optionRow({
+    type: "checkbox",
+    checked: settings.plugins.includes(plugin.id),
+    title: plugin.name,
+    description: plugin.description,
+    onChange: (on) => togglePlugin(plugin, on),
+  })));
+
+  const skillList = document.getElementById("skill-list");
+  skillList.replaceChildren(
+    optionRow({ type: "radio", name: "skill", checked: !settings.skillId, title: "No skill", description: "Tinker's normal behavior", onChange: () => { settings.skillId = null; saveSettings(); } }),
+    ...allSkills().map((skill) => optionRow({
+      type: "radio",
+      name: "skill",
+      checked: settings.skillId === skill.id,
+      title: skill.name,
+      description: skill.custom ? "Your skill" : skill.description,
+      onChange: () => { settings.skillId = skill.id; saveSettings(); },
+      onRemove: skill.custom ? () => {
+        settings.customSkills = settings.customSkills.filter((s) => s.id !== skill.id);
+        if (settings.skillId === skill.id) settings.skillId = null;
+        saveSettings();
+      } : null,
+    })),
+  );
+
+  document.getElementById("connector-list").replaceChildren(...connectorList.map((connector) => optionRow({
+    type: "checkbox",
+    checked: settings.connectors.includes(connector.id),
+    title: connector.label,
+    description: connector.description,
+    onChange: (on) => {
+      settings.connectors = on ? [...settings.connectors, connector.id] : settings.connectors.filter((c) => c !== connector.id);
+      saveSettings();
+    },
+  })));
+
+  const mcpList = document.getElementById("mcp-list");
+  if (settings.mcp.length === 0) {
+    mcpList.innerHTML = `<p class="muted small">No MCP servers yet.</p>`;
+  } else {
+    mcpList.replaceChildren(...settings.mcp.map((server, index) => optionRow({
+      type: "checkbox",
+      checked: server.enabled,
+      title: server.name,
+      description: server.url,
+      onChange: (on) => { settings.mcp[index].enabled = on; saveSettings(); },
+      onRemove: () => { settings.mcp.splice(index, 1); saveSettings(); },
+    })));
+  }
+}
+
+function renderActive() {
+  const parts = [];
+  const skill = activeSkill();
+  if (skill) parts.push(`Skill: ${skill.name}`);
+  const names = connectorList.filter((c) => settings.connectors.includes(c.id)).map((c) => c.label);
+  names.push(...settings.mcp.filter((s) => s.enabled).map((s) => s.name));
+  if (names.length) parts.push(`Connectors: ${names.join(", ")}`);
+  document.getElementById("active-tools").textContent = parts.join(" · ");
+}
+
+const panel = document.getElementById("panel");
+document.getElementById("customize").onclick = () => panel.showModal();
+document.getElementById("panel-close").onclick = () => panel.close();
+panel.addEventListener("click", (e) => e.target === panel && panel.close()); // click outside closes
+
+document.getElementById("skill-form").onsubmit = (e) => {
+  e.preventDefault();
+  const skill = {
+    id: `custom-${Date.now()}`,
+    custom: true,
+    name: document.getElementById("skill-name").value.trim(),
+    instructions: document.getElementById("skill-instructions").value.trim(),
+  };
+  settings.customSkills.push(skill);
+  settings.skillId = skill.id;
+  e.target.reset();
+  saveSettings();
+};
+
+document.getElementById("mcp-form").onsubmit = (e) => {
+  e.preventDefault();
+  settings.mcp.push({
+    name: document.getElementById("mcp-name").value.trim(),
+    url: document.getElementById("mcp-url").value.trim(),
+    token: document.getElementById("mcp-token").value.trim(),
+    enabled: true,
+  });
+  e.target.reset();
+  saveSettings();
+};
 
 // ---------- Mobile sidebar ----------
 
@@ -292,5 +479,6 @@ document.getElementById("new-chat").onclick = newChat;
 document.getElementById("sign-in").onclick = () => alert("Sign in is coming soon. Your chats are saved in this browser for now.");
 
 loadModels();
+renderActive();
 renderHistory();
 renderMessages();
