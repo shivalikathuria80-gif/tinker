@@ -1,7 +1,7 @@
 # Tinker
 
 Free AI agents for coding and problem solving, in your **browser** and your **terminal**.
-It runs on every chat model available on Groq (loaded automatically), like Qwen and GPT-OSS.
+Use it online at https://tinker-ai.onrender.com/app. It runs on every chat model available on Groq (loaded automatically), like Qwen and GPT-OSS.
 
 ## Install (terminal)
 
@@ -9,8 +9,8 @@ It runs on every chat model available on Groq (loaded automatically), like Qwen 
 npm install -g github:shivalikathuria80-gif/tinker
 tinker
 ```
-The first time you run it, `tinker` asks for a free Groq API key (https://console.groq.com/keys) and saves it to `~/.tinker/.env`.
-Run `tinker setup` to change it. Inside Tinker you can use `/model`, `/clear` and `/exit`.
+No API key needed: it talks to the hosted Tinker server. Want to use your own Groq key instead? Put `GROQ_API_KEY=...` in `~/.tinker/.env`.
+Inside Tinker you can use `/model`, `/clear` and `/exit`.
 
 Requires Node 20.12+.
 
@@ -36,7 +36,7 @@ tinker
 ## How it works
 
 Browser → `server.js` (/api/chat) → Groq → streamed back to the browser.
-The terminal app calls the providers directly through `lib/providers.js`.
+The terminal app talks to the same hosted server (or to Groq directly if you set your own key).
 API keys stay in `.env` and never reach the browser.
 
 Models come from Groq automatically. Speech and safety-filter models are hidden because they cannot chat.
