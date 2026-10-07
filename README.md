@@ -44,7 +44,8 @@ Models come from Groq automatically. Speech and safety-filter models are hidden 
 ## Skills, connectors and plugins
 
 - **Skills** change how Tinker behaves: Debugger, Code Reviewer, Test Writer, Explain Simply, Architect, or write your own (web app).
-- **Connectors** let Tinker pull in outside info: Web pages, GitHub repos, Web search (GPT-OSS models), and any **MCP server** (Streamable HTTP) to automate your work.
+- **Connectors** let Tinker pull in outside info: Web pages, GitHub repos, Web search and Run code (GPT-OSS models), and any **MCP server** (Streamable HTTP) to automate your work.
+- **Local files + commands** (terminal only, on by default): Tinker can list, read and write files and run commands in the folder you started it in. It asks `(y/n)` before every write or command.
 - **Plugins** are one-click bundles of a skill + connectors: Researcher, Repo Explorer, Bug Hunter, Teacher.
 
 Web: click **Customize** in the top bar. Terminal: `/skill` and `/connect`.
@@ -53,3 +54,16 @@ MCP servers in the terminal go in `~/.tinker/mcp.json`:
 ```json
 [{ "name": "DeepWiki", "url": "https://mcp.deepwiki.com/mcp" }]
 ```
+
+## Web app extras
+
+- **Attach files**: the paperclip adds text/code files (up to 200 KB each) to your message.
+- **Voice input**: the mic records you; Groq Whisper turns it into text.
+- **Download / share**: download a chat as Markdown, or copy a share link (the chat is packed into the link, no account needed).
+
+## Tests
+
+```bash
+npm test
+```
+Checks that the local file tools stay inside the project folder and respect "no".

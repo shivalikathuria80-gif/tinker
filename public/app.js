@@ -138,9 +138,20 @@ function messageElement(message) {
   const div = document.createElement("div");
   if (message.role === "user") {
     div.className = "msg msg-user";
+    if (message.files?.length) {
+      const chips = document.createElement("div");
+      chips.className = "chips";
+      for (const name of message.files) {
+        const chip = document.createElement("span");
+        chip.className = "chip";
+        chip.textContent = `Attached: ${name}`;
+        chips.appendChild(chip);
+      }
+      div.appendChild(chips);
+    }
     const bubble = document.createElement("div");
     bubble.className = "bubble";
-    bubble.textContent = message.content;
+    bubble.textContent = message.display ?? message.content; // display = what the user typed, without file contents
     div.appendChild(bubble);
   } else {
     div.className = "msg msg-ai";
@@ -188,7 +199,8 @@ function deleteChat(id) {
 
 async function sendMessage(text) {
   text = text.trim();
-  if (!text || isStreaming) return;
+  if ((!text && attachments.length === 0) || isStreaming) return;
+  if (!text) text = "Please look at the attached file(s).";
 
   let chat = activeChat();
   if (!chat) {
@@ -196,7 +208,11 @@ async function sendMessage(text) {
     chats.unshift(chat);
     activeId = chat.id;
   }
-  chat.messages.push({ role: "user", content: text });
+  // Attached files are added to the message text so the AI can read them.
+  const fileText = attachments.map((f) => `\n\nFile: ${f.name}\n\`\`\`\n${f.text}\n\`\`\``).join("");
+  chat.messages.push({ role: "user", content: text + fileText, display: text, files: attachments.map((f) => f.name) });
+  attachments = [];
+  renderAttachments();
   const reply = { role: "assistant", content: "" };
   chat.messages.push(reply);
   saveChats();
@@ -444,6 +460,173 @@ document.getElementById("mcp-form").onsubmit = (e) => {
   saveSettings();
 };
 
+// ---------- Small notice at the bottom of the screen ----------
+
+function toast(message) {
+  const el = document.createElement("div");
+  el.className = "toast";
+  el.setAttribute("role", "status");
+  el.textContent = message;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+// ---------- Attach files ----------
+
+const MAX_FILE_SIZE = 200_000; // ~200 KB of text per file
+let attachments = []; // [{ name, text }]
+
+function renderAttachments() {
+  const box = document.getElementById("attachments");
+  box.replaceChildren(...attachments.map((file, index) => {
+    const chip = document.createElement("span");
+    chip.className = "chip";
+    chip.innerHTML = `<span></span><button type="button">✕</button>`;
+    chip.querySelector("span").textContent = file.name;
+    chip.querySelector("button").setAttribute("aria-label", `Remove ${file.name}`);
+    chip.querySelector("button").onclick = () => {
+      attachments.splice(index, 1);
+      renderAttachments();
+    };
+    return chip;
+  }));
+}
+
+document.getElementById("attach").onclick = () => document.getElementById("file-input").click();
+document.getElementById("file-input").onchange = async (e) => {
+  for (const file of e.target.files) {
+    if (file.size > MAX_FILE_SIZE) {
+      toast(`${file.name} is too big (max 200 KB).`);
+      continue;
+    }
+    const text = await file.text();
+    if (text.includes("\u0000")) {
+      toast(`${file.name} isn't a text file. Only text and code files can be attached.`);
+      continue;
+    }
+    attachments.push({ name: file.name, text });
+  }
+  e.target.value = "";
+  renderAttachments();
+  els.input.focus();
+};
+
+// ---------- Voice input ----------
+// Records from the microphone, then the server turns the audio into text with Groq Whisper.
+
+const micButton = document.getElementById("mic");
+let recorder = null;
+
+micButton.onclick = async () => {
+  if (recorder) {
+    recorder.stop();
+    return;
+  }
+  if (!navigator.mediaDevices?.getUserMedia) {
+    toast("Voice input isn't supported in this browser.");
+    return;
+  }
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch {
+    toast("Microphone access was blocked. Allow it in your browser settings to use voice input.");
+    return;
+  }
+  const chunks = [];
+  recorder = new MediaRecorder(stream);
+  recorder.ondataavailable = (e) => chunks.push(e.data);
+  recorder.onstop = async () => {
+    stream.getTracks().forEach((t) => t.stop());
+    recorder = null;
+    micButton.setAttribute("aria-pressed", "false");
+    micButton.setAttribute("aria-label", "Start voice input");
+    micButton.disabled = true;
+    toast("Turning your voice into text…");
+    try {
+      const audio = new Blob(chunks, { type: chunks[0]?.type || "audio/webm" });
+      const response = await fetch("/api/transcribe", { method: "POST", headers: { "Content-Type": audio.type }, body: audio });
+      if (!response.ok) throw new Error(await response.text());
+      const { text } = await response.json();
+      els.input.value = (els.input.value ? els.input.value + " " : "") + text.trim();
+      autoGrow();
+      els.input.focus();
+    } catch (error) {
+      toast(`Couldn't understand the recording: ${error.message}`);
+    }
+    micButton.disabled = false;
+  };
+  recorder.start();
+  micButton.setAttribute("aria-pressed", "true");
+  micButton.setAttribute("aria-label", "Stop recording");
+  toast("Listening… click the mic again to stop.");
+};
+
+// ---------- Export and share ----------
+
+function chatToMarkdown(chat) {
+  const body = chat.messages
+    .map((m) => `## ${m.role === "user" ? "You" : "Tinker"}\n\n${m.content.replace(/^\[\[tool\]\] .*\n?/gm, "")}`)
+    .join("\n\n");
+  return `# ${chat.title}\n\n${body}\n`;
+}
+
+document.getElementById("export").onclick = () => {
+  const chat = activeChat();
+  if (!chat) return toast("Start a chat first, then you can download it.");
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(new Blob([chatToMarkdown(chat)], { type: "text/markdown" }));
+  link.download = `${chat.title.replace(/[^\w -]/g, "").trim().slice(0, 40) || "tinker-chat"}.md`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+};
+
+// Share links hold the whole chat inside the link (compressed), so no database is needed.
+// ponytail: very long chats make very long links; store shares on the server once there's a database.
+async function compress(text) {
+  const stream = new Blob([text]).stream().pipeThrough(new CompressionStream("gzip"));
+  const bytes = new Uint8Array(await new Response(stream).arrayBuffer());
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+async function decompress(code) {
+  const bytes = Uint8Array.from(atob(code.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+  return new Response(stream).text();
+}
+
+document.getElementById("share").onclick = async () => {
+  const chat = activeChat();
+  if (!chat) return toast("Start a chat first, then you can share it.");
+  const data = { title: chat.title, messages: chat.messages.map(({ role, content, display, files }) => ({ role, content, display, files })) };
+  const url = `${location.origin}/app#share=${await compress(JSON.stringify(data))}`;
+  try {
+    await navigator.clipboard.writeText(url);
+    toast("Share link copied. Anyone with the link can see this chat.");
+  } catch {
+    prompt("Copy this share link:", url);
+  }
+};
+
+async function openSharedChat() {
+  const code = location.hash.match(/^#share=(.+)$/)?.[1];
+  if (!code) return;
+  history.replaceState(null, "", "/app"); // clean the address bar
+  try {
+    const shared = JSON.parse(await decompress(code));
+    const messages = (shared.messages || []).filter((m) => typeof m.content === "string" && (m.role === "user" || m.role === "assistant"));
+    const chat = { id: crypto.randomUUID(), title: `Shared: ${String(shared.title || "chat").slice(0, 50)}`, messages };
+    chats.unshift(chat);
+    saveChats();
+    openChat(chat.id);
+    toast("Shared chat added to your history.");
+  } catch {
+    toast("That share link is broken or incomplete.");
+  }
+}
+
 // ---------- Mobile sidebar ----------
 
 function closeNav() {
@@ -482,3 +665,4 @@ loadModels();
 renderActive();
 renderHistory();
 renderMessages();
+openSharedChat();

@@ -3,12 +3,14 @@
 //   /app         -> the chat app
 //   /api/models  -> list of models (and whether each one has a key set)
 //   /api/chat    -> forwards a conversation to the AI and streams the reply back
+//   /api/complete -> one non-streamed AI reply, used by the terminal app's own agent loop
+//   /api/transcribe -> turns a voice recording into text (Groq Whisper)
 
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { join, extname, dirname, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
-import { getModels, DEFAULT_MODEL, SKILLS, isConfigured, streamChat } from "./lib/providers.js";
+import { getModels, DEFAULT_MODEL, SKILLS, isConfigured, streamChat, groqComplete } from "./lib/providers.js";
 import { CONNECTORS } from "./lib/connectors.js";
 
 const PUBLIC_DIR = join(dirname(fileURLToPath(import.meta.url)), "public");
@@ -26,7 +28,8 @@ async function readJson(req) {
 
 // Simple rate limit so one person can't use up the shared Groq key.
 // ponytail: in-memory, resets on restart and is per server — swap for Redis or sign-in limits if Tinker grows.
-const LIMIT_PER_MINUTE = 20;
+// 60 because one terminal question with tools can take several AI calls.
+const LIMIT_PER_MINUTE = 60;
 const recentRequests = new Map(); // ip -> timestamps of requests in the last minute
 
 function isRateLimited(req) {
@@ -38,11 +41,53 @@ function isRateLimited(req) {
   return times.length > LIMIT_PER_MINUTE;
 }
 
-async function handleChat(req, res) {
-  if (isRateLimited(req)) {
-    res.writeHead(429, { "Content-Type": "text/plain" }).end("Too many messages. Please wait a minute and try again.");
-    return;
+function tooMany(res) {
+  res.writeHead(429, { "Content-Type": "text/plain" }).end("Too many messages. Please wait a minute and try again.");
+}
+
+// One AI reply with tools, for the terminal app. The terminal runs the tools on the user's own computer.
+async function handleComplete(req, res) {
+  if (isRateLimited(req)) return tooMany(res);
+  try {
+    const payload = await readJson(req);
+    const models = await getModels();
+    if (!models.some((m) => m.id === payload.model)) throw new Error("Unknown model");
+    const message = await groqComplete({
+      model: payload.model,
+      messages: (Array.isArray(payload.messages) ? payload.messages : []).slice(-80),
+      ...(Array.isArray(payload.tools) && payload.tools.length ? { tools: payload.tools.slice(0, 64), tool_choice: "auto" } : {}),
+    });
+    res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify(message));
+  } catch (error) {
+    res.writeHead(400, { "Content-Type": "text/plain" }).end(error.message);
   }
+}
+
+// Voice input: the browser sends recorded audio, we ask Groq Whisper for the text.
+async function handleTranscribe(req, res) {
+  if (isRateLimited(req)) return tooMany(res);
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of req) {
+    size += chunk.length;
+    if (size > 10_000_000) return res.writeHead(413).end("Recording too long");
+    chunks.push(chunk);
+  }
+  const form = new FormData();
+  form.append("file", new Blob([Buffer.concat(chunks)], { type: req.headers["content-type"] || "audio/webm" }), "voice.webm");
+  form.append("model", "whisper-large-v3-turbo");
+  const response = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}` },
+    body: form,
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) return res.writeHead(502, { "Content-Type": "text/plain" }).end(result.error?.message || "Transcription failed");
+  res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify({ text: result.text || "" }));
+}
+
+async function handleChat(req, res) {
+  if (isRateLimited(req)) return tooMany(res);
   let payload;
   try {
     payload = await readJson(req);
@@ -105,9 +150,11 @@ async function serveFile(pathname, res) {
   }
 }
 
-createServer(async (req, res) => {
+async function route(req, res) {
   const { pathname } = new URL(req.url, "http://localhost");
   if (req.method === "POST" && pathname === "/api/chat") return handleChat(req, res);
+  if (req.method === "POST" && pathname === "/api/complete") return handleComplete(req, res);
+  if (req.method === "POST" && pathname === "/api/transcribe") return handleTranscribe(req, res);
   if (pathname === "/api/models") {
     const list = (await getModels()).map((m) => ({ ...m, ready: isConfigured(m.provider) }));
     res.writeHead(200, { "Content-Type": "application/json" });
@@ -115,6 +162,15 @@ createServer(async (req, res) => {
     return res.end(JSON.stringify({ models: list, skills, connectors: CONNECTORS, default: list.some((m) => m.id === DEFAULT_MODEL) ? DEFAULT_MODEL : list[0]?.id }));
   }
   return serveFile(pathname, res);
+}
+
+createServer((req, res) => {
+  // Safety net: an unexpected error answers 500 instead of crashing the whole server.
+  route(req, res).catch((error) => {
+    console.error(error);
+    if (!res.headersSent) res.writeHead(500, { "Content-Type": "text/plain" });
+    res.end("Something went wrong on the server. Please try again.");
+  });
 }).listen(PORT, () => {
   console.log(`Tinker is running at http://localhost:${PORT}`);
 });

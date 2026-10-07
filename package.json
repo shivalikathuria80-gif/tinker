@@ -17,7 +17,8 @@
   "scripts": {
     "dev": "node server.js",
     "start": "node server.js",
-    "cli": "node bin/tinker.js"
+    "cli": "node bin/tinker.js",
+    "test": "node --test lib/local-tools.test.js"
   },
   "engines": {
     "node": ">=20.12"

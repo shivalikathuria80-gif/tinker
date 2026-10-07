@@ -43,7 +43,13 @@
         </button>
         <label for="model" class="sr-only">Model</label>
         <select id="model" class="model"></select>
-        <button class="btn customize-btn" id="customize" type="button" aria-haspopup="dialog">
+        <button class="icon-btn customize-btn" id="export" type="button" aria-label="Download chat as Markdown" title="Download chat">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
+        </button>
+        <button class="icon-btn" id="share" type="button" aria-label="Copy share link" title="Copy share link">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>
+        </button>
+        <button class="btn" id="customize" type="button" aria-haspopup="dialog">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
           Customize
         </button>
@@ -53,7 +59,15 @@
 
       <form class="composer-wrap" id="composer">
         <p class="active-tools" id="active-tools"></p>
+        <div class="attachments" id="attachments" aria-live="polite"></div>
         <div class="composer">
+          <input type="file" id="file-input" multiple hidden />
+          <button class="icon-btn" id="attach" type="button" aria-label="Attach text or code files" title="Attach files">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 11l-8.5 8.5a5 5 0 0 1-7-7L14 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 7"/></svg>
+          </button>
+          <button class="icon-btn" id="mic" type="button" aria-label="Start voice input" aria-pressed="false" title="Voice input">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+          </button>
           <label for="input" class="sr-only">Message</label>
           <textarea id="input" rows="1" placeholder="Ask Tinker to build, fix or explain anything…"></textarea>
           <button class="btn btn-primary" id="send" type="submit" aria-label="Send message">
