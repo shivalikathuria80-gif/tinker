@@ -70,6 +70,12 @@ MCP servers in the terminal go in `~/.tinker/mcp.json`:
 - **Auto-named chats**: after the first answer, a small model gives the chat a short title (never overwrites a name you chose).
 - **Your own Groq key** (optional, in Customize): stored only in your browser; your messages then use your own Groq limits instead of the shared ones.
 
+## Accounts (Firebase)
+
+- **Sign in with Google** (optional) to save chats to your account and see them on every device. Signed-in people also get higher free limits.
+- Chats are stored in Firestore at `users/{uid}/chats/{chatId}`. The rules in `firestore.rules` let each person read and write only their own chats.
+- The server checks Firebase sign-in tokens with Google's public certificates (`lib/auth.js`), so no secret Firebase key is needed. Set `FIREBASE_PROJECT_ID` if you use your own Firebase project.
+
 ## Long chats
 
 Groq's free tier allows only a few thousand tokens per minute, so Tinker sends the newest messages and a short **summary** of older ones (made by a different model, so it doesn't use up the main model's limit).

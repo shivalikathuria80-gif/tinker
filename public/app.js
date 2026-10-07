@@ -19,6 +19,109 @@ let chats = loadChats();
 let activeId = null;
 let isStreaming = false;
 
+// ---------- Account: Google sign-in + chats saved to your account (Firebase) ----------
+// Signed out: chats stay in this browser only. Signed in: chats are saved to your account and
+// show up on every device. Signing in also gives you higher free limits.
+
+let cloudUser = null;
+const syncedVersions = new Map(); // chat id → the version last saved to the cloud
+let syncTimer = null;
+
+// Headers sent with each request: your sign-in token (for per-person limits) and/or your own Groq key.
+async function authHeaders() {
+  const headers = { ...keyHeader() };
+  const token = cloudUser ? await window.tinkerCloud.idToken() : null;
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return headers;
+}
+
+// Uploads chats that changed since the last upload (waits 1.5s so typing/streaming isn't uploaded constantly).
+function scheduleCloudSync() {
+  if (!cloudUser) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(async () => {
+    for (const chat of chats) {
+      const version = JSON.stringify(chat);
+      if (syncedVersions.get(chat.id) === version) continue;
+      if (version.length > 900_000) {
+        toast(`"${chat.title}" is too big to save to your account (Firestore's 1 MB limit). It stays in this browser.`);
+        syncedVersions.set(chat.id, version);
+        continue;
+      }
+      chat.updated = Date.now();
+      try {
+        await window.tinkerCloud.saveChat(chat);
+        syncedVersions.set(chat.id, JSON.stringify(chat));
+      } catch {
+        toast("Couldn't save to your account right now. Your chats are still in this browser.");
+        return;
+      }
+    }
+  }, 1500);
+}
+
+// After signing in: combine this browser's chats with the account's chats (newest version wins).
+async function mergeCloudChats() {
+  try {
+    const remote = await window.tinkerCloud.listChats();
+    const byId = new Map(chats.map((c) => [c.id, c]));
+    for (const chat of remote) {
+      const local = byId.get(chat.id);
+      if (!local || (chat.updated || 0) > (local.updated || 0)) byId.set(chat.id, chat);
+      syncedVersions.set(chat.id, JSON.stringify(chat));
+    }
+    chats = [...byId.values()].sort((a, b) => (b.updated || 0) - (a.updated || 0));
+    saveChats(); // uploads chats that only existed in this browser
+    renderHistory();
+    renderMessages();
+  } catch {
+    toast("Couldn't load your saved chats. Check your internet and refresh.");
+  }
+}
+
+function renderAccount() {
+  const button = document.getElementById("sign-in");
+  const label = cloudUser ? (cloudUser.displayName || cloudUser.email || "Account").split(" ")[0] : "Sign in";
+  button.lastChild.textContent = ` ${label}`;
+  button.title = cloudUser ? `Signed in as ${cloudUser.email}. Click to sign out.` : "Sign in with Google to save chats to your account";
+  button.setAttribute("aria-label", cloudUser ? `Signed in as ${cloudUser.email}. Sign out` : "Sign in with Google");
+}
+
+function setupAccount() {
+  const cloud = window.tinkerCloud;
+  document.getElementById("sign-in").onclick = async () => {
+    if (!cloud) return toast("Sign-in couldn't load. Check your internet and refresh.");
+    if (!cloudUser) {
+      try {
+        await cloud.signIn();
+      } catch (error) {
+        if (error?.code !== "auth/popup-closed-by-user") toast(`Sign-in failed: ${error?.code || error?.message}`);
+      }
+      return;
+    }
+    if (!confirm(`Sign out of ${cloudUser.email}? Your chats stay saved in your account.`)) return;
+    await cloud.signOut();
+  };
+  cloud.onUserChange(async (user) => {
+    const wasSignedIn = Boolean(cloudUser);
+    cloudUser = user;
+    renderAccount();
+    if (user) {
+      await mergeCloudChats();
+    } else if (wasSignedIn) {
+      // Signed out: remove this account's chats from this browser (they're safe in the account).
+      chats = [];
+      activeId = null;
+      syncedVersions.clear();
+      saveChats();
+      renderHistory();
+      renderMessages();
+    }
+  });
+}
+if (window.tinkerCloud) setupAccount();
+else addEventListener("tinker-cloud-ready", setupAccount, { once: true });
+
 function loadChats() {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
@@ -33,6 +136,7 @@ function saveChats() {
   } catch {
     // storage full or blocked — the chat still works, it just won't be saved
   }
+  scheduleCloudSync();
 }
 
 const activeChat = () => chats.find((c) => c.id === activeId);
@@ -284,6 +388,8 @@ function deleteChat(id) {
   if (!confirm("Delete this chat?")) return;
   chats = chats.filter((c) => c.id !== id);
   if (activeId === id) activeId = null;
+  if (cloudUser) window.tinkerCloud.deleteChat(id).catch(() => toast("Couldn't delete the chat from your account. Try again later."));
+  syncedVersions.delete(id);
   saveChats();
   renderHistory();
   renderMessages();
@@ -328,7 +434,7 @@ async function requestReply(chat) {
     const response = await fetch("/api/chat", {
       method: "POST",
       signal: controller.signal,
-      headers: { "Content-Type": "application/json", ...keyHeader() },
+      headers: { "Content-Type": "application/json", ...(await authHeaders()) },
       body: JSON.stringify({ model: els.model.value, messages: chat.messages.slice(0, -1), ...requestExtras() }),
     });
     if (!response.ok) {
@@ -368,7 +474,7 @@ async function autoTitle(chat) {
   try {
     const response = await fetch("/api/title", {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...keyHeader() },
+      headers: { "Content-Type": "application/json", ...(await authHeaders()) },
       body: JSON.stringify({
         question: chat.messages[0].display ?? chat.messages[0].content,
         answer: chat.messages[1].content.replace(/^\[\[tool\]\] .*\n?/gm, ""),
@@ -768,7 +874,7 @@ micButton.onclick = async () => {
     toast("Turning your voice into text…");
     try {
       const audio = new Blob(chunks, { type: chunks[0]?.type || "audio/webm" });
-      const response = await fetch("/api/transcribe", { method: "POST", headers: { "Content-Type": audio.type, ...keyHeader() }, body: audio });
+      const response = await fetch("/api/transcribe", { method: "POST", headers: { "Content-Type": audio.type, ...(await authHeaders()) }, body: audio });
       if (!response.ok) throw new Error(await response.text());
       const { text } = await response.json();
       els.input.value = (els.input.value ? els.input.value + " " : "") + text.trim();
@@ -883,7 +989,7 @@ els.form.addEventListener("submit", (e) => {
 });
 els.model.addEventListener("change", () => localStorage.setItem("tinker.model", els.model.value));
 document.getElementById("new-chat").onclick = newChat;
-document.getElementById("sign-in").onclick = () => alert("Sign in is coming soon. Your chats are saved in this browser for now.");
+
 
 loadModels();
 renderActive();

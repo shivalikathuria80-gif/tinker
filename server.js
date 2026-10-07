@@ -13,6 +13,7 @@ import { join, extname, dirname, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getModels, DEFAULT_MODEL, SKILLS, isConfigured, streamChat, groqComplete, cleanTitle } from "./lib/providers.js";
 import { CONNECTORS } from "./lib/connectors.js";
+import { verifyIdToken } from "./lib/auth.js";
 
 const PUBLIC_DIR = join(dirname(fileURLToPath(import.meta.url)), "public");
 const PORT = process.env.PORT || 3000;
@@ -32,18 +33,28 @@ async function readJson(req) {
 
 // Simple rate limit so one person can't use up the shared Groq key.
 // ponytail: in-memory, resets on restart and is per server — swap for Redis or sign-in limits if Tinker grows.
-// 60 because one terminal question with tools can take several AI calls.
-const LIMIT_PER_MINUTE = 60;
-const recentRequests = new Map(); // ip -> timestamps of requests in the last minute
+// Signed-in people get more than anonymous visitors. Generous because one terminal question
+// with tools can take several AI calls.
+const LIMITS_PER_MINUTE = { signedIn: 90, anonymous: 40 };
+const recentRequests = new Map(); // "user:<uid>" or "ip:<address>" -> timestamps in the last minute
+const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "tinkeraidev";
 
 // Returns 0 if the request may go ahead, otherwise how many seconds until it can.
-function secondsUntilAllowed(req) {
+async function secondsUntilAllowed(req) {
+  // Who is this? A verified Firebase sign-in token → their user id; otherwise their IP address.
+  const token = (req.headers.authorization || "").replace(/^Bearer /, "");
+  const uid = token ? await verifyIdToken(token, FIREBASE_PROJECT_ID) : null;
   const ip = (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").split(",")[0].trim();
+  const who = uid ? `user:${uid}` : `ip:${ip}`;
+  const limit = uid ? LIMITS_PER_MINUTE.signedIn : LIMITS_PER_MINUTE.anonymous;
+
   const now = Date.now();
-  const times = (recentRequests.get(ip) || []).filter((t) => now - t < 60_000);
-  if (times.length >= LIMIT_PER_MINUTE) return Math.ceil((times[0] + 60_000 - now) / 1000);
+  // ponytail: crude memory cap; a busy server would use Redis or Firestore counters instead.
+  if (recentRequests.size > 20_000) recentRequests.clear();
+  const times = (recentRequests.get(who) || []).filter((t) => now - t < 60_000);
+  if (times.length >= limit) return Math.ceil((times[0] + 60_000 - now) / 1000);
   times.push(now);
-  recentRequests.set(ip, times);
+  recentRequests.set(who, times);
   return 0;
 }
 
@@ -54,7 +65,7 @@ function userKey(req) {
   return typeof key === "string" && /^gsk_[A-Za-z0-9]{20,}$/.test(key) ? key : undefined;
 }
 
-const limited = (req) => (userKey(req) ? 0 : secondsUntilAllowed(req));
+const limited = async (req) => (userKey(req) ? 0 : secondsUntilAllowed(req));
 
 // The web app looks for "Ready again in Ns" to show a countdown.
 function tooMany(res, seconds) {
@@ -64,7 +75,7 @@ function tooMany(res, seconds) {
 
 // One AI reply with tools, for the terminal app. The terminal runs the tools on the user's own computer.
 async function handleComplete(req, res) {
-  const wait = limited(req);
+  const wait = await limited(req);
   if (wait) return tooMany(res, wait);
   try {
     const payload = await readJson(req);
@@ -83,7 +94,7 @@ async function handleComplete(req, res) {
 
 // Voice input: the browser sends recorded audio, we ask Groq Whisper for the text.
 async function handleTranscribe(req, res) {
-  const wait = limited(req);
+  const wait = await limited(req);
   if (wait) return tooMany(res, wait);
   const chunks = [];
   let size = 0;
@@ -107,7 +118,7 @@ async function handleTranscribe(req, res) {
 
 // Auto-naming: a small, fast model reads the start of a chat and suggests a 3–6 word title.
 async function handleTitle(req, res) {
-  const wait = limited(req);
+  const wait = await limited(req);
   if (wait) return tooMany(res, wait);
   try {
     const { question = "", answer = "" } = await readJson(req);
@@ -127,7 +138,7 @@ async function handleTitle(req, res) {
 }
 
 async function handleChat(req, res) {
-  const wait = limited(req);
+  const wait = await limited(req);
   if (wait) return tooMany(res, wait);
   let payload;
   try {
