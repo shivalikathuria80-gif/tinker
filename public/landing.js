@@ -238,3 +238,6 @@ fetch("/api/models")
   .catch(() => {
     // keep the built-in list
   });
+
+// Installable app: register the service worker.
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});

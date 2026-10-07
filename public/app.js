@@ -244,7 +244,7 @@ function fillAssistant(div, content) {
   const [answer, error] = content.split("[[error]]");
   // Lines starting with [[tool]] are status updates from connectors ("Reading example.com").
   const statuses = answer.match(/^\[\[tool\]\] .*$/gm) || [];
-  const text = answer.replace(/^\[\[tool\]\] .*\n?/gm, "");
+  const text = answer.replace(/^\[\[tool\]\] .*\n?/gm, "").replace(/【[^】]*】/g, ""); // also drop web-search citation codes
   div.innerHTML =
     statuses.map((s) => `<p class="tool-status">${escapeHtml(s.slice(9))}</p>`).join("") + renderMarkdown(text);
   if (error) div.innerHTML += `<div class="msg-error" role="alert">Something failed: ${escapeHtml(error.trim())}</div>`;
@@ -291,7 +291,7 @@ function deleteChat(id) {
 
 async function sendMessage(text) {
   text = text.trim();
-  if ((!text && attachments.length === 0) || isStreaming) return;
+  if ((!text && attachments.length === 0) || isStreaming || limitedUntil > Date.now()) return;
   if (!text) text = "Please look at the attached file(s).";
 
   let chat = activeChat();
@@ -355,6 +355,8 @@ async function requestReply(chat) {
   controller = null;
   saveChats();
   setStreaming(false);
+  const limitWait = reply.content.match(/Ready again in (\d+)s/);
+  if (limitWait) startCountdown(Number(limitWait[1]));
   renderMessages(); // redraw so the Regenerate / Edit buttons appear
   if (chat.messages.length === 2 && !reply.content.includes("[[error]]")) autoTitle(chat);
 }
@@ -384,9 +386,37 @@ async function autoTitle(chat) {
   }
 }
 
+// Free-limit countdown: shows when you can send again, and blocks sending until then.
+let countdownTimer = null;
+let limitedUntil = 0;
+
+function startCountdown(seconds) {
+  const notice = document.getElementById("limit-notice");
+  limitedUntil = Date.now() + seconds * 1000;
+  clearInterval(countdownTimer);
+  const tick = () => {
+    const left = Math.ceil((limitedUntil - Date.now()) / 1000);
+    if (left <= 0) {
+      clearInterval(countdownTimer);
+      limitedUntil = 0;
+      notice.textContent = "Ready. You can send again.";
+      els.send.disabled = false;
+      setTimeout(() => {
+        if (!limitedUntil) notice.hidden = true; // unless a new countdown started meanwhile
+      }, 3000);
+      return;
+    }
+    notice.hidden = false;
+    notice.textContent = `Free limit reached. Ready again in ${left}s. Add your own free Groq key in Customize to skip the wait.`;
+    els.send.disabled = true;
+  };
+  tick();
+  countdownTimer = setInterval(tick, 1000);
+}
+
 function regenerate() {
   const chat = activeChat();
-  if (!chat || isStreaming || chat.messages.at(-1)?.role !== "assistant") return;
+  if (!chat || isStreaming || limitedUntil > Date.now() || chat.messages.at(-1)?.role !== "assistant") return;
   chat.messages.pop();
   requestReply(chat);
 }
@@ -860,3 +890,22 @@ renderActive();
 renderHistory();
 renderMessages();
 openSharedChat();
+
+// Installable app: register the service worker (it lets Tinker open as an app, even offline).
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+
+// "Install app" button: only shown when the browser says Tinker can be installed.
+let installPrompt = null;
+addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+  installPrompt = event;
+  document.getElementById("install").hidden = false;
+});
+document.getElementById("install").onclick = async () => {
+  if (!installPrompt) return;
+  installPrompt.prompt();
+  await installPrompt.userChoice;
+  installPrompt = null;
+  document.getElementById("install").hidden = true;
+};
+addEventListener("appinstalled", () => (document.getElementById("install").hidden = true));

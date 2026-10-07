@@ -48,7 +48,7 @@ Models come from Groq automatically. Speech and safety-filter models are hidden 
 
 - **Skills** change how Tinker behaves: Debugger, Code Reviewer, Test Writer, Explain Simply, Architect, or write your own (web app).
 - **Connectors** let Tinker pull in outside info: Web pages, GitHub repos, Web search and Run code (GPT-OSS models), and any **MCP server** (Streamable HTTP) to automate your work.
-- **Local files + commands** (terminal only, on by default): Tinker can list, read and write files and run commands in the folder you started it in. It shows the exact changes (red = removed, green = added) and asks `(y/n)` before every write or command.
+- **Local files + commands** (terminal only, on by default): Tinker can search, list, read (whole files or just some lines), edit (just the lines that change) and write files, and run commands in the folder you started it in. It shows the exact changes (red = removed, green = added) and asks `(y/n)` before every write or command.
 - **Project rules**: put a `TINKER.md` file in your project folder and the terminal app follows its rules automatically (like `CLAUDE.md`).
 - **Plugins** are one-click bundles of a skill + connectors: Researcher, Repo Explorer, Bug Hunter, Teacher.
 
@@ -65,6 +65,8 @@ MCP servers in the terminal go in `~/.tinker/mcp.json`:
 - **Voice input**: the mic records you; Groq Whisper turns it into text.
 - **Download / share**: download a chat as Markdown, or copy a share link (the chat is packed into the link, no account needed).
 - **Chat controls**: Copy buttons on code, Stop while answering, Regenerate, Edit your messages, search and rename chats.
+- **Install as an app**: Tinker is a PWA — use "Install app" in the sidebar (or your browser's install icon).
+- **Free-limit countdown**: if the free limit is reached, Tinker shows when you can send again.
 - **Auto-named chats**: after the first answer, a small model gives the chat a short title (never overwrites a name you chose).
 - **Your own Groq key** (optional, in Customize): stored only in your browser; your messages then use your own Groq limits instead of the shared ones.
 

@@ -209,3 +209,5 @@ select.model {
 .msg-ai tr:last-child td { border-bottom: 0; }
 .msg-ai ul, .msg-ai ol { margin: 0 0 12px; padding-left: 22px; }
 .msg-ai li { margin: 2px 0; }
+.limit-notice { max-width: 760px; margin: 0 auto 6px; padding: 8px 12px; border-radius: var(--radius); font-size: 14px; background: color-mix(in srgb, var(--accent) 12%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); }
+.install-btn { margin-bottom: 8px; }

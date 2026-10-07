@@ -47,8 +47,8 @@ async function getServerModels() {
 }
 
 // One AI reply (used by the agent loop): through the server, or straight to Groq with your own key.
-async function complete(body) {
-  if (!useServer) return groq.groqComplete(body);
+async function complete(body, onToken) {
+  if (!useServer) return groq.groqStream(body, undefined, undefined, onToken); // own key: stream straight from Groq
   const response = await fetch(`${SERVER}/api/complete`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -154,8 +154,9 @@ try {
 
 const folderNote =
   `\n\nYou are running in the user's terminal, in the folder ${process.cwd()}. ` +
-  "Use list_files and read_file to look at their project before changing it. write_file needs the complete new file content. " +
-  "Use run_command for tests, builds and git. The user approves every write and command.";
+  "Find code with search_files (gives file:line), then read only the lines you need with read_file start_line/end_line. " +
+  "Change existing files with edit_file (exact old_text → new_text); use write_file only for new files or full rewrites. " +
+  "Use run_command for tests, builds and git. The user approves every change and command. Keep tool use small: the free limit is tight.";
 
 if (projectRules) console.log(dim("  Loaded project rules from TINKER.md"));
 console.log(dim(`  model: ${modelId}   ·   folder: ${process.cwd()}   ·   /help for commands\n`));

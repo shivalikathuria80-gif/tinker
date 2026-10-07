@@ -7,6 +7,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;650&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="theme-color" content="#c8553d" />
+  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
@@ -31,6 +35,10 @@
         <div id="history-list"></div>
       </nav>
       <div class="sidebar-bottom">
+        <button class="btn install-btn" type="button" id="install" hidden>
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
+          Install app
+        </button>
         <button class="btn" type="button" id="sign-in">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
           Sign in
@@ -61,6 +69,7 @@
       <section class="messages" id="messages" aria-live="polite"></section>
 
       <form class="composer-wrap" id="composer">
+        <p class="limit-notice" id="limit-notice" role="status" hidden></p>
         <p class="active-tools" id="active-tools"></p>
         <div class="attachments" id="attachments" aria-live="polite"></div>
         <div class="composer">

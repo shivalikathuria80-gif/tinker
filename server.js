@@ -16,7 +16,10 @@ import { CONNECTORS } from "./lib/connectors.js";
 
 const PUBLIC_DIR = join(dirname(fileURLToPath(import.meta.url)), "public");
 const PORT = process.env.PORT || 3000;
-const TYPES = { ".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".svg": "image/svg+xml" };
+const TYPES = {
+  ".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".svg": "image/svg+xml",
+  ".png": "image/png", ".webmanifest": "application/manifest+json",
+};
 
 async function readJson(req) {
   let body = "";
@@ -33,13 +36,15 @@ async function readJson(req) {
 const LIMIT_PER_MINUTE = 60;
 const recentRequests = new Map(); // ip -> timestamps of requests in the last minute
 
-function isRateLimited(req) {
+// Returns 0 if the request may go ahead, otherwise how many seconds until it can.
+function secondsUntilAllowed(req) {
   const ip = (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").split(",")[0].trim();
   const now = Date.now();
   const times = (recentRequests.get(ip) || []).filter((t) => now - t < 60_000);
+  if (times.length >= LIMIT_PER_MINUTE) return Math.ceil((times[0] + 60_000 - now) / 1000);
   times.push(now);
   recentRequests.set(ip, times);
-  return times.length > LIMIT_PER_MINUTE;
+  return 0;
 }
 
 // A visitor's own Groq key (optional, sent by the web app). Their usage then counts against their
@@ -49,15 +54,18 @@ function userKey(req) {
   return typeof key === "string" && /^gsk_[A-Za-z0-9]{20,}$/.test(key) ? key : undefined;
 }
 
-const limited = (req) => !userKey(req) && isRateLimited(req);
+const limited = (req) => (userKey(req) ? 0 : secondsUntilAllowed(req));
 
-function tooMany(res) {
-  res.writeHead(429, { "Content-Type": "text/plain" }).end("Too many messages. Please wait a minute and try again.");
+// The web app looks for "Ready again in Ns" to show a countdown.
+function tooMany(res, seconds) {
+  res.writeHead(429, { "Content-Type": "text/plain", "Retry-After": String(seconds) })
+    .end(`Free limit reached. Ready again in ${seconds}s.`);
 }
 
 // One AI reply with tools, for the terminal app. The terminal runs the tools on the user's own computer.
 async function handleComplete(req, res) {
-  if (limited(req)) return tooMany(res);
+  const wait = limited(req);
+  if (wait) return tooMany(res, wait);
   try {
     const payload = await readJson(req);
     const models = await getModels();
@@ -75,7 +83,8 @@ async function handleComplete(req, res) {
 
 // Voice input: the browser sends recorded audio, we ask Groq Whisper for the text.
 async function handleTranscribe(req, res) {
-  if (limited(req)) return tooMany(res);
+  const wait = limited(req);
+  if (wait) return tooMany(res, wait);
   const chunks = [];
   let size = 0;
   for await (const chunk of req) {
@@ -98,7 +107,8 @@ async function handleTranscribe(req, res) {
 
 // Auto-naming: a small, fast model reads the start of a chat and suggests a 3–6 word title.
 async function handleTitle(req, res) {
-  if (limited(req)) return tooMany(res);
+  const wait = limited(req);
+  if (wait) return tooMany(res, wait);
   try {
     const { question = "", answer = "" } = await readJson(req);
     const message = await groqComplete({
@@ -117,7 +127,8 @@ async function handleTitle(req, res) {
 }
 
 async function handleChat(req, res) {
-  if (limited(req)) return tooMany(res);
+  const wait = limited(req);
+  if (wait) return tooMany(res, wait);
   let payload;
   try {
     payload = await readJson(req);
