@@ -473,7 +473,7 @@ function toast(message) {
 
 // ---------- Attach files ----------
 
-const MAX_FILE_SIZE = 200_000; // ~200 KB of text per file
+const MAX_FILE_SIZE = 30_000; // ~30 KB of text per file (the free Groq tier limits how much text fits)
 let attachments = []; // [{ name, text }]
 
 function renderAttachments() {
@@ -496,7 +496,7 @@ document.getElementById("attach").onclick = () => document.getElementById("file-
 document.getElementById("file-input").onchange = async (e) => {
   for (const file of e.target.files) {
     if (file.size > MAX_FILE_SIZE) {
-      toast(`${file.name} is too big (max 200 KB).`);
+      toast(`${file.name} is too big (max 30 KB on the free plan).`);
       continue;
     }
     const text = await file.text();

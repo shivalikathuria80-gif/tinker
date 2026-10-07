@@ -57,7 +57,7 @@ MCP servers in the terminal go in `~/.tinker/mcp.json`:
 
 ## Web app extras
 
-- **Attach files**: the paperclip adds text/code files (up to 200 KB each) to your message.
+- **Attach files**: the paperclip adds text/code files (up to 30 KB each) to your message.
 - **Voice input**: the mic records you; Groq Whisper turns it into text.
 - **Download / share**: download a chat as Markdown, or copy a share link (the chat is packed into the link, no account needed).
 
