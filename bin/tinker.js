@@ -60,7 +60,7 @@ async function streamFromServer({ modelId, messages, skill, onToken }) {
   const response = await fetch(`${SERVER}/api/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model: modelId, messages, skill: skill && { id: skill.id } }),
+    body: JSON.stringify({ model: modelId, messages, skill }),
   });
   if (!response.ok) throw new Error(await response.text());
   const decoder = new TextDecoder();
@@ -110,6 +110,21 @@ let history = [];
 let skill = null;
 let connectors = ["files"];
 let mcp = [];
+
+// Project rules: a TINKER.md file in the current folder is added to Tinker's instructions (like CLAUDE.md).
+let projectRules = "";
+try {
+  projectRules = readFileSync(join(process.cwd(), "TINKER.md"), "utf8").slice(0, 6000);
+} catch {
+  // no TINKER.md here
+}
+
+// The active skill plus the project rules, sent as one set of extra instructions.
+function effectiveSkill() {
+  const parts = [skill?.instructions, projectRules && `Project rules from TINKER.md:\n${projectRules}`].filter(Boolean);
+  return parts.length ? { name: skill?.name || "Project rules", instructions: parts.join("\n\n") } : null;
+}
+
 try {
   mcp = JSON.parse(readFileSync(join(homedir(), ".tinker", "mcp.json"), "utf8"));
 } catch {
@@ -121,6 +136,7 @@ const folderNote =
   "Use list_files and read_file to look at their project before changing it. write_file needs the complete new file content. " +
   "Use run_command for tests, builds and git. The user approves every write and command.";
 
+if (projectRules) console.log(dim("  Loaded project rules from TINKER.md"));
 console.log(dim(`  model: ${modelId}   ·   folder: ${process.cwd()}   ·   /help for commands\n`));
 
 while (true) {
@@ -177,13 +193,13 @@ while (true) {
 
     let reply;
     if (tools.length || builtIns.length) {
-      const system = groq.systemPrompt(skill) + (connectors.includes("files") ? folderNote : "");
+      const system = groq.systemPrompt(effectiveSkill()) + (connectors.includes("files") ? folderNote : "");
       const conversation = [{ role: "system", content: system }, ...history];
       reply = await groq.agentLoop({ modelId, conversation, tools, builtIns, complete, onToken, onStatus, maxSteps: 15 });
     } else if (useServer) {
-      reply = await streamFromServer({ modelId, messages: history, skill, onToken });
+      reply = await streamFromServer({ modelId, messages: history, skill: effectiveSkill(), onToken });
     } else {
-      reply = await groq.streamChat({ modelId, messages: history, skill, onToken, onStatus });
+      reply = await groq.streamChat({ modelId, messages: history, skill: effectiveSkill(), onToken, onStatus });
     }
     history.push({ role: "assistant", content: reply });
   } catch (error) {

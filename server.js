@@ -41,13 +41,22 @@ function isRateLimited(req) {
   return times.length > LIMIT_PER_MINUTE;
 }
 
+// A visitor's own Groq key (optional, sent by the web app). Their usage then counts against their
+// own Groq limits, so the shared rate limit doesn't apply to them.
+function userKey(req) {
+  const key = req.headers["x-groq-key"];
+  return typeof key === "string" && /^gsk_[A-Za-z0-9]{20,}$/.test(key) ? key : undefined;
+}
+
+const limited = (req) => !userKey(req) && isRateLimited(req);
+
 function tooMany(res) {
   res.writeHead(429, { "Content-Type": "text/plain" }).end("Too many messages. Please wait a minute and try again.");
 }
 
 // One AI reply with tools, for the terminal app. The terminal runs the tools on the user's own computer.
 async function handleComplete(req, res) {
-  if (isRateLimited(req)) return tooMany(res);
+  if (limited(req)) return tooMany(res);
   try {
     const payload = await readJson(req);
     const models = await getModels();
@@ -56,7 +65,7 @@ async function handleComplete(req, res) {
       model: payload.model,
       messages: (Array.isArray(payload.messages) ? payload.messages : []).slice(-80),
       ...(Array.isArray(payload.tools) && payload.tools.length ? { tools: payload.tools.slice(0, 64), tool_choice: "auto" } : {}),
-    });
+    }, undefined, userKey(req));
     res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify(message));
   } catch (error) {
     res.writeHead(400, { "Content-Type": "text/plain" }).end(error.message);
@@ -65,7 +74,7 @@ async function handleComplete(req, res) {
 
 // Voice input: the browser sends recorded audio, we ask Groq Whisper for the text.
 async function handleTranscribe(req, res) {
-  if (isRateLimited(req)) return tooMany(res);
+  if (limited(req)) return tooMany(res);
   const chunks = [];
   let size = 0;
   for await (const chunk of req) {
@@ -78,7 +87,7 @@ async function handleTranscribe(req, res) {
   form.append("model", "whisper-large-v3-turbo");
   const response = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
     method: "POST",
-    headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}` },
+    headers: { Authorization: `Bearer ${userKey(req) || process.env.GROQ_API_KEY}` },
     body: form,
   });
   const result = await response.json().catch(() => ({}));
@@ -87,7 +96,7 @@ async function handleTranscribe(req, res) {
 }
 
 async function handleChat(req, res) {
-  if (isRateLimited(req)) return tooMany(res);
+  if (limited(req)) return tooMany(res);
   let payload;
   try {
     payload = await readJson(req);
@@ -125,6 +134,7 @@ async function handleChat(req, res) {
       skill,
       connectors,
       mcp,
+      apiKey: userKey(req),
       onToken: (token) => res.write(token),
       onStatus: (text) => res.write(`[[tool]] ${text.replace(/\n/g, " ")}\n`),
     });

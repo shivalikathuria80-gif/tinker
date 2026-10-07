@@ -92,20 +92,45 @@ function renderHistory() {
     els.list.innerHTML = `<p class="history-empty">No chats yet. Start one!</p>`;
     return;
   }
+  // Search matches chat titles and message text.
+  const query = document.getElementById("chat-search").value.trim().toLowerCase();
+  const matches = chats.filter((chat) =>
+    !query || chat.title.toLowerCase().includes(query) || chat.messages.some((m) => (m.display ?? m.content).toLowerCase().includes(query)));
+  if (matches.length === 0) {
+    els.list.innerHTML = `<p class="history-empty">No chats match "${escapeHtml(query)}".</p>`;
+    return;
+  }
   els.list.innerHTML = "";
-  for (const chat of chats) {
+  for (const chat of matches) {
     const row = document.createElement("div");
     row.className = "chat-item" + (chat.id === activeId ? " active" : "");
     row.innerHTML = `
       <button class="open" type="button" ${chat.id === activeId ? 'aria-current="true"' : ""}></button>
-      <button class="del" type="button" aria-label="Delete chat">✕</button>`;
+      <button class="del rename" type="button">
+        <svg class="icon" style="width:14px;height:14px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z"/></svg>
+      </button>
+      <button class="del" type="button">✕</button>`;
     row.querySelector(".open").textContent = chat.title;
     row.querySelector(".open").title = chat.title;
     row.querySelector(".open").onclick = () => openChat(chat.id);
-    row.querySelector(".del").onclick = () => deleteChat(chat.id);
+    row.querySelector(".rename").setAttribute("aria-label", `Rename "${chat.title}"`);
+    row.querySelector(".rename").onclick = () => renameChat(chat.id);
+    row.querySelector(".del:not(.rename)").setAttribute("aria-label", `Delete "${chat.title}"`);
+    row.querySelector(".del:not(.rename)").onclick = () => deleteChat(chat.id);
     els.list.appendChild(row);
   }
 }
+
+function renameChat(id) {
+  const chat = chats.find((c) => c.id === id);
+  const title = prompt("Rename chat:", chat.title)?.trim();
+  if (!title) return;
+  chat.title = title.slice(0, 80);
+  saveChats();
+  renderHistory();
+}
+
+document.getElementById("chat-search").addEventListener("input", () => renderHistory());
 
 function renderMessages() {
   const chat = activeChat();
@@ -129,13 +154,27 @@ function renderMessages() {
   }
   const thread = document.createElement("div");
   thread.className = "thread";
-  for (const message of chat.messages) thread.appendChild(messageElement(message));
+  chat.messages.forEach((message, index) => {
+    const isLast = index === chat.messages.length - 1;
+    thread.appendChild(messageElement(message, index, isLast));
+  });
   els.messages.replaceChildren(thread);
   els.messages.scrollTop = els.messages.scrollHeight;
 }
 
-function messageElement(message) {
+function actionButton(label, onClick) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "msg-action";
+  button.textContent = label;
+  button.onclick = onClick;
+  return button;
+}
+
+function messageElement(message, index, isLast) {
   const div = document.createElement("div");
+  const actions = document.createElement("div");
+  actions.className = "msg-actions";
   if (message.role === "user") {
     div.className = "msg msg-user";
     if (message.files?.length) {
@@ -153,12 +192,35 @@ function messageElement(message) {
     bubble.className = "bubble";
     bubble.textContent = message.display ?? message.content; // display = what the user typed, without file contents
     div.appendChild(bubble);
+    if (index !== undefined) actions.appendChild(actionButton("Edit", () => editMessage(index)));
   } else {
     div.className = "msg msg-ai";
     fillAssistant(div, message.content);
+    if (isLast && !isStreaming) {
+      actions.append(
+        actionButton("Copy", () => copyText(message.content.replace(/^\[\[tool\]\] .*\n?/gm, "").split("[[error]]")[0].trim())),
+        actionButton("Regenerate", regenerate),
+      );
+    }
   }
+  if (actions.children.length) div.appendChild(actions);
   return div;
 }
+
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast("Copied.");
+  } catch {
+    toast("Couldn't copy — your browser blocked it.");
+  }
+}
+
+// Every code block gets a Copy button (one click handler for all of them).
+els.messages.addEventListener("click", (e) => {
+  const button = e.target.closest(".copy-code");
+  if (button) copyText(button.parentElement.querySelector("code").textContent);
+});
 
 function fillAssistant(div, content) {
   const [answer, error] = content.split("[[error]]");
@@ -168,6 +230,9 @@ function fillAssistant(div, content) {
   div.innerHTML =
     statuses.map((s) => `<p class="tool-status">${escapeHtml(s.slice(9))}</p>`).join("") + renderMarkdown(text);
   if (error) div.innerHTML += `<div class="msg-error" role="alert">Something failed: ${escapeHtml(error.trim())}</div>`;
+  div.querySelectorAll("pre").forEach((pre) => {
+    pre.insertAdjacentHTML("afterbegin", `<button type="button" class="copy-code" aria-label="Copy code">Copy</button>`);
+  });
 }
 
 // ---------- Actions ----------
@@ -213,23 +278,30 @@ async function sendMessage(text) {
   chat.messages.push({ role: "user", content: text + fileText, display: text, files: attachments.map((f) => f.name) });
   attachments = [];
   renderAttachments();
+  els.input.value = "";
+  autoGrow();
+  await requestReply(chat);
+}
+
+let controller = null; // lets the Stop button cancel the reply
+
+async function requestReply(chat) {
   const reply = { role: "assistant", content: "" };
   chat.messages.push(reply);
   saveChats();
   renderHistory();
   renderMessages();
-
-  els.input.value = "";
-  autoGrow();
   setStreaming(true);
 
   const replyEl = els.messages.querySelector(".thread").lastElementChild;
   replyEl.classList.add("cursor");
+  controller = new AbortController();
 
   try {
     const response = await fetch("/api/chat", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
+      headers: { "Content-Type": "application/json", ...keyHeader() },
       body: JSON.stringify({ model: els.model.value, messages: chat.messages.slice(0, -1), ...requestExtras() }),
     });
     if (!response.ok) {
@@ -249,19 +321,44 @@ async function sendMessage(text) {
     }
     if (!reply.content.trim()) reply.content = "[[error]] The model returned an empty reply. Try again or switch models.";
   } catch (error) {
-    if (error) reply.content += `\n\n[[error]] Couldn't reach the Tinker server (${error.message}). Check your internet and try again.`;
+    if (error?.name === "AbortError") reply.content += "\n\n*(stopped)*";
+    else if (error) reply.content += `\n\n[[error]] Couldn't reach the Tinker server (${error.message}). Check your internet and try again.`;
   }
 
-  fillAssistant(replyEl, reply.content);
-  replyEl.classList.remove("cursor");
+  controller = null;
   saveChats();
   setStreaming(false);
+  renderMessages(); // redraw so the Regenerate / Edit buttons appear
 }
+
+function regenerate() {
+  const chat = activeChat();
+  if (!chat || isStreaming || chat.messages.at(-1)?.role !== "assistant") return;
+  chat.messages.pop();
+  requestReply(chat);
+}
+
+// Edit: put the message back in the box and remove it (and everything after it) from the chat.
+function editMessage(index) {
+  const chat = activeChat();
+  if (!chat || isStreaming) return;
+  const message = chat.messages[index];
+  if (chat.messages.length - index > 1 && !confirm("Editing removes this message and everything after it. Continue?")) return;
+  chat.messages.splice(index);
+  saveChats();
+  renderMessages();
+  els.input.value = message.display ?? message.content;
+  autoGrow();
+  els.input.focus();
+}
+
+const SEND_ICON = `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>`;
+const STOP_ICON = `<svg class="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>`;
 
 function setStreaming(value) {
   isStreaming = value;
-  els.send.disabled = value;
-  els.send.setAttribute("aria-label", value ? "Waiting for reply" : "Send message");
+  els.send.innerHTML = value ? STOP_ICON : SEND_ICON;
+  els.send.setAttribute("aria-label", value ? "Stop the answer" : "Send message");
 }
 
 async function loadModels() {
@@ -419,7 +516,50 @@ function renderPanel() {
   }
 }
 
+// Optional personal Groq key: saved only in this browser, sent with each request as a header.
+const keyHeader = () => (settings.groqKey ? { "X-Groq-Key": settings.groqKey } : {});
+
+function renderKey() {
+  const status = document.getElementById("key-status");
+  const input = document.getElementById("groq-key");
+  if (settings.groqKey) {
+    input.value = "";
+    input.placeholder = `Saved: ${settings.groqKey.slice(0, 8)}…`;
+    status.textContent = "Using your key. It's stored only in this browser and passes through the Tinker server to Groq.";
+    document.getElementById("key-save").textContent = "Replace";
+  } else {
+    input.placeholder = "gsk_…";
+    status.textContent = "Using the shared key.";
+    document.getElementById("key-save").textContent = "Save";
+  }
+  status.toggleAttribute("data-has-key", Boolean(settings.groqKey));
+  if (settings.groqKey && !document.getElementById("key-remove")) {
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.id = "key-remove";
+    remove.className = "msg-action";
+    remove.textContent = "Remove my key";
+    remove.onclick = () => { delete settings.groqKey; saveSettings(); };
+    status.after(remove);
+  } else if (!settings.groqKey) {
+    document.getElementById("key-remove")?.remove();
+  }
+}
+
+document.getElementById("key-form").onsubmit = (e) => {
+  e.preventDefault();
+  const key = document.getElementById("groq-key").value.trim();
+  if (!/^gsk_[A-Za-z0-9]{20,}$/.test(key)) {
+    toast("That doesn't look like a Groq key. It should start with gsk_.");
+    return;
+  }
+  settings.groqKey = key;
+  saveSettings();
+  toast("Saved. Your messages now use your own Groq limits.");
+};
+
 function renderActive() {
+  renderKey();
   const parts = [];
   const skill = activeSkill();
   if (skill) parts.push(`Skill: ${skill.name}`);
@@ -545,7 +685,7 @@ micButton.onclick = async () => {
     toast("Turning your voice into text…");
     try {
       const audio = new Blob(chunks, { type: chunks[0]?.type || "audio/webm" });
-      const response = await fetch("/api/transcribe", { method: "POST", headers: { "Content-Type": audio.type }, body: audio });
+      const response = await fetch("/api/transcribe", { method: "POST", headers: { "Content-Type": audio.type, ...keyHeader() }, body: audio });
       if (!response.ok) throw new Error(await response.text());
       const { text } = await response.json();
       els.input.value = (els.input.value ? els.input.value + " " : "") + text.trim();
@@ -655,7 +795,8 @@ els.input.addEventListener("keydown", (e) => {
 });
 els.form.addEventListener("submit", (e) => {
   e.preventDefault();
-  sendMessage(els.input.value);
+  if (isStreaming) controller?.abort(); // the send button is a Stop button while answering
+  else sendMessage(els.input.value);
 });
 els.model.addEventListener("change", () => localStorage.setItem("tinker.model", els.model.value));
 document.getElementById("new-chat").onclick = newChat;

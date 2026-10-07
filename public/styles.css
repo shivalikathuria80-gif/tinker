@@ -229,3 +229,16 @@ select.model {
 #mic[aria-pressed="true"] { color: #c0392b; background: color-mix(in srgb, #c0392b 12%, transparent); }
 #mic[aria-pressed="true"] svg { animation: blink 1s steps(1) infinite; }
 .composer .icon-btn { flex: none; }
+
+/* ---------- Message actions, copy, search ---------- */
+.msg-actions { display: flex; gap: 4px; margin-top: 4px; }
+.msg-user .msg-actions { justify-content: flex-end; }
+.msg-action { background: none; border: 0; color: var(--muted); font: 13px var(--font); padding: 4px 8px; border-radius: 6px; cursor: pointer; min-height: 28px; }
+.msg-action:hover, .msg-action:focus-visible { background: var(--surface-2); color: var(--text); }
+.msg-ai pre { position: relative; }
+.copy-code { position: absolute; top: 8px; right: 8px; background: #2c2a27; color: var(--code-text); border: 1px solid #3a3835; border-radius: 6px; font: 12px var(--font); padding: 3px 8px; cursor: pointer; opacity: .85; }
+.copy-code:hover, .copy-code:focus-visible { opacity: 1; }
+.chat-search { width: calc(100% - 8px); margin: 0 4px 4px; height: 36px; padding: 0 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); font: 14px var(--font); }
+.chat-item .rename { display: inline-flex; align-items: center; }
+.key-form { display: flex; gap: 8px; }
+.key-form input { flex: 1; min-width: 0; font: 15px var(--font); padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); }

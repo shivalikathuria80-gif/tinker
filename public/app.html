@@ -24,6 +24,8 @@
         </button>
       </div>
       <nav class="history">
+        <label for="chat-search" class="sr-only">Search chats</label>
+        <input id="chat-search" class="chat-search" type="search" placeholder="Search chats" autocomplete="off" />
         <h2>Recent</h2>
         <div id="history-list"></div>
       </nav>
@@ -85,6 +87,18 @@
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
       </button>
     </div>
+
+    <section aria-labelledby="key-title">
+      <h3 id="key-title">Your own Groq key (optional)</h3>
+      <p class="muted">Tinker is free to use with a shared key that has limits. Add your own free key from
+        <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a> to use your own limits instead.</p>
+      <form id="key-form" class="key-form">
+        <label for="groq-key" class="sr-only">Groq API key</label>
+        <input id="groq-key" type="password" autocomplete="off" placeholder="gsk_…" pattern="gsk_[A-Za-z0-9]+" />
+        <button class="btn" type="submit" id="key-save">Save</button>
+      </form>
+      <p class="muted small" id="key-status"></p>
+    </section>
 
     <section aria-labelledby="plugins-title">
       <h3 id="plugins-title">Plugins</h3>
