@@ -62,6 +62,7 @@ MCP servers in the terminal go in `~/.tinker/mcp.json`:
 - **Voice input**: the mic records you; Groq Whisper turns it into text.
 - **Download / share**: download a chat as Markdown, or copy a share link (the chat is packed into the link, no account needed).
 - **Chat controls**: Copy buttons on code, Stop while answering, Regenerate, Edit your messages, search and rename chats.
+- **Auto-named chats**: after the first answer, a small model gives the chat a short title (never overwrites a name you chose).
 - **Your own Groq key** (optional, in Customize): stored only in your browser; your messages then use your own Groq limits instead of the shared ones.
 
 ## Long chats

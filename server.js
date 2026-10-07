@@ -5,12 +5,13 @@
 //   /api/chat    -> forwards a conversation to the AI and streams the reply back
 //   /api/complete -> one non-streamed AI reply, used by the terminal app's own agent loop
 //   /api/transcribe -> turns a voice recording into text (Groq Whisper)
+//   /api/title    -> a short title for a new chat, based on its first message
 
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { join, extname, dirname, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
-import { getModels, DEFAULT_MODEL, SKILLS, isConfigured, streamChat, groqComplete } from "./lib/providers.js";
+import { getModels, DEFAULT_MODEL, SKILLS, isConfigured, streamChat, groqComplete, cleanTitle } from "./lib/providers.js";
 import { CONNECTORS } from "./lib/connectors.js";
 
 const PUBLIC_DIR = join(dirname(fileURLToPath(import.meta.url)), "public");
@@ -95,6 +96,26 @@ async function handleTranscribe(req, res) {
   res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify({ text: result.text || "" }));
 }
 
+// Auto-naming: a small, fast model reads the start of a chat and suggests a 3–6 word title.
+async function handleTitle(req, res) {
+  if (limited(req)) return tooMany(res);
+  try {
+    const { question = "", answer = "" } = await readJson(req);
+    const message = await groqComplete({
+      model: "openai/gpt-oss-20b",
+      reasoning_effort: "low",
+      max_tokens: 300,
+      messages: [
+        { role: "system", content: "Write a short title (3 to 6 words) for this chat. Reply with the title only: no quotes, no ending punctuation." },
+        { role: "user", content: `Question: ${String(question).slice(0, 1500)}\n\nStart of the answer: ${String(answer).slice(0, 500)}` },
+      ],
+    }, undefined, userKey(req));
+    res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify({ title: cleanTitle(message.content) }));
+  } catch (error) {
+    res.writeHead(502, { "Content-Type": "text/plain" }).end(error.message);
+  }
+}
+
 async function handleChat(req, res) {
   if (limited(req)) return tooMany(res);
   let payload;
@@ -165,6 +186,7 @@ async function route(req, res) {
   if (req.method === "POST" && pathname === "/api/chat") return handleChat(req, res);
   if (req.method === "POST" && pathname === "/api/complete") return handleComplete(req, res);
   if (req.method === "POST" && pathname === "/api/transcribe") return handleTranscribe(req, res);
+  if (req.method === "POST" && pathname === "/api/title") return handleTitle(req, res);
   if (pathname === "/api/models") {
     const list = (await getModels()).map((m) => ({ ...m, ready: isConfigured(m.provider) }));
     res.writeHead(200, { "Content-Type": "application/json" });

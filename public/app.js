@@ -126,6 +126,7 @@ function renameChat(id) {
   const title = prompt("Rename chat:", chat.title)?.trim();
   if (!title) return;
   chat.title = title.slice(0, 80);
+  chat.renamed = true; // auto-naming won't touch it any more
   saveChats();
   renderHistory();
 }
@@ -329,6 +330,32 @@ async function requestReply(chat) {
   saveChats();
   setStreaming(false);
   renderMessages(); // redraw so the Regenerate / Edit buttons appear
+  if (chat.messages.length === 2 && !reply.content.includes("[[error]]")) autoTitle(chat);
+}
+
+// After the first answer, ask the server for a short title based on what the chat is about.
+// Never overwrites a name the user chose. If it fails, the chat keeps its first-message title.
+async function autoTitle(chat) {
+  if (chat.renamed) return;
+  try {
+    const response = await fetch("/api/title", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...keyHeader() },
+      body: JSON.stringify({
+        question: chat.messages[0].display ?? chat.messages[0].content,
+        answer: chat.messages[1].content.replace(/^\[\[tool\]\] .*\n?/gm, ""),
+      }),
+    });
+    if (!response.ok) return;
+    const { title } = await response.json();
+    if (title && !chat.renamed) {
+      chat.title = title;
+      saveChats();
+      renderHistory();
+    }
+  } catch {
+    // keep the current title
+  }
 }
 
 function regenerate() {
