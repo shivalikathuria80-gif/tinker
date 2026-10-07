@@ -57,8 +57,8 @@ function renderMarkdown(text) {
   for (let i = 0; i < parts.length; i += 3) {
     html += renderProse(parts[i]);
     if (parts[i + 2] !== undefined) {
-      const lang = parts[i + 1] ? ` data-lang="${escapeHtml(parts[i + 1])}"` : "";
-      html += `<pre${lang}><code>${escapeHtml(parts[i + 2].replace(/\n$/, ""))}</code></pre>`;
+      const lang = parts[i + 1] ? ` class="language-${escapeHtml(parts[i + 1])}"` : "";
+      html += `<pre><code${lang}>${escapeHtml(parts[i + 2].replace(/\n$/, ""))}</code></pre>`;
     }
   }
   if (thinking) {
@@ -67,24 +67,41 @@ function renderMarkdown(text) {
   return html;
 }
 
+// Inline formatting inside a line: `code` and **bold** (text is escaped first).
+const inline = (text) => escapeHtml(text).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+
+const TABLE_DIVIDER = /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/;
+const cells = (line) => line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell) => cell.trim());
+
+function renderTable(header, rows) {
+  const head = cells(header).map((c) => `<th scope="col">${inline(c)}</th>`).join("");
+  const body = rows.map((row) => `<tr>${cells(row).map((c) => `<td>${inline(c)}</td>`).join("")}</tr>`).join("");
+  return `<div class="table-wrap"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+}
+
+function renderBlock(block) {
+  if (!block.trim()) return "";
+  const lines = block.split("\n");
+  // A Markdown table: a header row, a divider row like |---|---|, then data rows.
+  const divider = lines.findIndex((line, i) => i > 0 && TABLE_DIVIDER.test(line) && lines[i - 1].includes("|"));
+  if (divider > 0) {
+    let end = divider + 1;
+    while (end < lines.length && lines[end].includes("|")) end++;
+    return renderBlock(lines.slice(0, divider - 1).join("\n")) +
+      renderTable(lines[divider - 1], lines.slice(divider + 1, end)) +
+      renderBlock(lines.slice(end).join("\n"));
+  }
+  const heading = block.match(/^(#{1,4})\s+(.*)/);
+  if (heading) return `<h${heading[1].length + 2} class="md-heading">${inline(heading[2])}</h${heading[1].length + 2}>${renderBlock(block.split("\n").slice(1).join("\n"))}`;
+  if (/^(\s*[-*]|\s*\d+\.)\s/.test(block)) {
+    const items = lines.map((line) => `<li>${inline(line.replace(/^\s*([-*]|\d+\.)\s/, ""))}</li>`);
+    return /^\s*\d+\./.test(block) ? `<ol>${items.join("")}</ol>` : `<ul>${items.join("")}</ul>`;
+  }
+  return `<p>${lines.map(inline).join("<br>")}</p>`;
+}
+
 function renderProse(text) {
-  return text
-    .trim()
-    .split(/\n{2,}/)
-    .filter(Boolean)
-    .map((block) => {
-      let safe = escapeHtml(block)
-        .replace(/`([^`]+)`/g, "<code>$1</code>")
-        .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-      const heading = safe.match(/^#{1,4}\s+(.*)/);
-      if (heading) return `<p><strong>${heading[1]}</strong></p>`;
-      if (/^(\s*[-*]|\s*\d+\.)\s/.test(safe)) {
-        const items = safe.split("\n").map((line) => `<li>${line.replace(/^\s*([-*]|\d+\.)\s/, "")}</li>`);
-        return /^\s*\d+\./.test(safe) ? `<ol>${items.join("")}</ol>` : `<ul>${items.join("")}</ul>`;
-      }
-      return `<p>${safe.replace(/\n/g, "<br>")}</p>`;
-    })
-    .join("");
+  return text.trim().split(/\n{2,}/).map(renderBlock).join("");
 }
 
 function renderHistory() {
@@ -232,8 +249,17 @@ function fillAssistant(div, content) {
     statuses.map((s) => `<p class="tool-status">${escapeHtml(s.slice(9))}</p>`).join("") + renderMarkdown(text);
   if (error) div.innerHTML += `<div class="msg-error" role="alert">Something failed: ${escapeHtml(error.trim())}</div>`;
   div.querySelectorAll("pre").forEach((pre) => {
+    highlight(pre.querySelector("code"));
     pre.insertAdjacentHTML("afterbegin", `<button type="button" class="copy-code" aria-label="Copy code">Copy</button>`);
   });
+}
+
+// Syntax colors from highlight.js (loaded in app.html). If it didn't load, code stays plain.
+function highlight(code) {
+  if (!window.hljs) return;
+  const lang = code.className.match(/language-(\S+)/)?.[1];
+  if (lang && !hljs.getLanguage(lang)) code.className = ""; // unknown language → let it guess
+  hljs.highlightElement(code);
 }
 
 // ---------- Actions ----------
