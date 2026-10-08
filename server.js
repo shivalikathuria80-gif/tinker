@@ -156,9 +156,16 @@ async function handleChat(req, res) {
 
   // Skill: a built-in id, or a custom { name, instructions } written by the user.
   const preset = SKILLS.find((s) => s.id === payload.skill?.id);
-  const skill = preset || (typeof payload.skill?.instructions === "string"
+  let skill = preset || (typeof payload.skill?.instructions === "string"
     ? { name: String(payload.skill.name || "Custom").slice(0, 60), instructions: payload.skill.instructions.slice(0, 4000) }
     : null);
+  // Voice mode: the answer will be read aloud, so keep it short and speakable.
+  if (payload.voice === true) {
+    const voiceRules = "The user is talking to you by voice and will HEAR your answer read aloud. " +
+      "Answer in 1–3 short, natural spoken sentences. No markdown, headings, lists, tables or emoji. " +
+      "Only write code if asked; if you do, put it in a code block and say \"I've put the code in the chat.\"";
+    skill = { name: skill?.name || "Voice", instructions: [skill?.instructions, voiceRules].filter(Boolean).join("\n\n") };
+  }
   const connectors = (Array.isArray(payload.connectors) ? payload.connectors : []).filter((id) => CONNECTORS.some((c) => c.id === id));
   const mcp = (Array.isArray(payload.mcp) ? payload.mcp : [])
     .filter((s) => typeof s?.url === "string")

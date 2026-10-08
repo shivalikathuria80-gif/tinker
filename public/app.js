@@ -606,6 +606,7 @@ function requestExtras() {
     skill: skill ? (skill.custom ? { name: skill.name, instructions: skill.instructions } : { id: skill.id }) : null,
     connectors: settings.connectors,
     mcp: settings.mcp.filter((s) => s.enabled),
+    voice: window.voiceModeActive === true, // set by voice.js while voice mode is open
   };
 }
 

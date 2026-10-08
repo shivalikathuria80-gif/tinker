@@ -80,6 +80,9 @@
           <button class="icon-btn" id="mic" type="button" aria-label="Start voice input" aria-pressed="false" title="Voice input">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
           </button>
+          <button class="icon-btn" id="voice-mode" type="button" aria-label="Start voice mode: talk with Tinker out loud" title="Voice mode">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M2 10v3M6 6v11M10 3v18M14 8v7M18 5v13M22 10v3"/></svg>
+          </button>
           <label for="input" class="sr-only">Message</label>
           <textarea id="input" rows="1" placeholder="Ask Tinker to build, fix or explain anything…"></textarea>
           <button class="btn btn-primary" id="send" type="submit" aria-label="Send message">
@@ -90,6 +93,29 @@
       </form>
     </main>
   </div>
+  <!-- Voice mode: a hands-free spoken conversation -->
+  <dialog class="voice" id="voice" aria-labelledby="voice-status">
+    <div class="voice-inner">
+      <p class="voice-label">Voice mode</p>
+      <button class="orb" id="voice-orb" type="button" data-state="idle" aria-describedby="voice-status">
+        <span class="orb-core" aria-hidden="true"></span>
+        <span class="orb-ring" aria-hidden="true"></span>
+        <span class="orb-ring two" aria-hidden="true"></span>
+        <span class="sr-only" id="orb-action">Tap to interrupt</span>
+      </button>
+      <p class="voice-status" id="voice-status" role="status">Starting…</p>
+      <div class="voice-transcript">
+        <p class="said" id="voice-you"></p>
+        <p class="reply" id="voice-reply"></p>
+      </div>
+      <div class="voice-actions">
+        <button class="btn" type="button" id="voice-mute" aria-pressed="false">Mute mic</button>
+        <button class="btn btn-primary" type="button" id="voice-end">End voice mode</button>
+      </div>
+      <p class="voice-hint">Speak naturally. Tinker answers when you pause. Tap the orb to interrupt.</p>
+    </div>
+  </dialog>
+
   <dialog class="panel" id="panel" aria-labelledby="panel-title">
     <div class="panel-head">
       <h2 id="panel-title">Customize Tinker</h2>
@@ -157,5 +183,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
   <script type="module" src="/firebase.js"></script>
   <script src="/app.js"></script>
+  <script src="/voice.js"></script>
 </body>
 </html>
