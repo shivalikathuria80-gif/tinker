@@ -92,11 +92,7 @@ function setupAccount() {
   document.getElementById("sign-in").onclick = async () => {
     if (!cloud) return toast("Sign-in couldn't load. Check your internet and refresh.");
     if (!cloudUser) {
-      try {
-        await cloud.signIn();
-      } catch (error) {
-        if (error?.code !== "auth/popup-closed-by-user") toast(`Sign-in failed: ${error?.code || error?.message}`);
-      }
+      location.assign("/signin?next=/app"); // the sign-in page offers Google and email + password
       return;
     }
     if (!confirm(`Sign out of ${cloudUser.email}? Your chats stay saved in your account.`)) return;

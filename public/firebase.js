@@ -5,7 +5,10 @@
 // This web config is public on purpose (every Firebase web app ships it); the security rules protect the data.
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
-import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
+import {
+  getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut,
+  createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, updateProfile,
+} from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
 import { getFirestore, collection, doc, getDocs, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
 
 const app = initializeApp({
@@ -23,6 +26,14 @@ const chatsOf = (uid) => collection(db, "users", uid, "chats");
 // A small API for app.js (a normal script) to use.
 window.tinkerCloud = {
   signIn: () => signInWithPopup(auth, new GoogleAuthProvider()),
+  signInWithEmail: (email, password) => signInWithEmailAndPassword(auth, email, password),
+  async signUpWithEmail(name, email, password) {
+    const { user } = await createUserWithEmailAndPassword(auth, email, password);
+    if (name) await updateProfile(user, { displayName: name });
+    return user;
+  },
+  resetPassword: (email) => sendPasswordResetEmail(auth, email),
+  currentUser: () => auth.currentUser,
   signOut: () => signOut(auth),
   onUserChange: (callback) => onAuthStateChanged(auth, callback),
   idToken: () => auth.currentUser?.getIdToken() ?? null,

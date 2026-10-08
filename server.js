@@ -188,7 +188,7 @@ async function handleChat(req, res) {
 }
 
 async function serveFile(pathname, res) {
-  const routes = { "/": "/index.html", "/app": "/app.html" };
+  const routes = { "/": "/index.html", "/app": "/app.html", "/signin": "/signin.html" };
   const file = normalize(join(PUBLIC_DIR, routes[pathname] || pathname));
   if (!file.startsWith(PUBLIC_DIR)) {
     res.writeHead(403).end();

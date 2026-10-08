@@ -72,7 +72,7 @@ MCP servers in the terminal go in `~/.tinker/mcp.json`:
 
 ## Accounts (Firebase)
 
-- **Sign in with Google** (optional) to save chats to your account and see them on every device. Signed-in people also get higher free limits.
+- **Sign in** at `/signin` with **Google** or **email + password** (optional) to save chats to your account and see them on every device. Signed-in people also get higher free limits.
 - Chats are stored in Firestore at `users/{uid}/chats/{chatId}`. The rules in `firestore.rules` let each person read and write only their own chats.
 - The server checks Firebase sign-in tokens with Google's public certificates (`lib/auth.js`), so no secret Firebase key is needed. Set `FIREBASE_PROJECT_ID` if you use your own Firebase project.
 

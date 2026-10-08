@@ -30,7 +30,7 @@ html { scroll-behavior: smooth; }
 .nav-links a.text-link:hover { color: var(--text); background: var(--surface-2); }
 .logo-mark.spin { animation: spin-slow 12s linear infinite; }
 @keyframes spin-slow { to { transform: rotate(360deg); } }
-@media (max-width: 720px) { .nav-links .text-link, .nav-links .signin { display: none; } }
+@media (max-width: 720px) { .nav-links .text-link { display: none; } }
 
 /* ---------- Hero ---------- */
 .hero { padding-block: 64px 32px; display: grid; gap: 40px; grid-template-columns: 1fr; align-items: center; }

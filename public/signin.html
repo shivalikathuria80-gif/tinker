@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sign in · Tinker</title>
+  <meta name="description" content="Sign in to Tinker to save your chats to your account and get higher free limits." />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="theme-color" content="#c8553d" />
+  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;650&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/signin.css" />
+</head>
+<body>
+  <main class="auth">
+    <!-- Brand side (hidden on small screens) -->
+    <aside class="auth-brand" aria-hidden="true">
+      <a href="/" class="logo"><svg class="logo-mark" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3 7 7 3-7 3-3 7-3-7-7-3 7-3z"/></svg>Tinker</a>
+      <div>
+        <h2>Your chats, on every device.</h2>
+        <ul class="perks">
+          <li><i data-lucide="cloud"></i><span>Chats saved to your account and synced everywhere</span></li>
+          <li><i data-lucide="gauge"></i><span>Higher free limits than anonymous use</span></li>
+          <li><i data-lucide="shield-check"></i><span>Only you can read your chats</span></li>
+          <li><i data-lucide="sparkles"></i><span>Still free. No credit card, no API key</span></li>
+        </ul>
+      </div>
+      <p class="brand-foot">Free AI agents that write, run and fix your code.</p>
+    </aside>
+
+    <!-- Form side -->
+    <section class="auth-panel" aria-labelledby="auth-title">
+      <a href="/" class="logo auth-mobile-logo"><svg class="logo-mark" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l3 7 7 3-7 3-3 7-3-7-7-3 7-3z"/></svg>Tinker</a>
+
+      <!-- Shown when already signed in -->
+      <div id="signed-in" class="signed-in" hidden>
+        <i data-lucide="circle-check-big" class="big-icon"></i>
+        <h1>You're signed in</h1>
+        <p id="signed-in-as"></p>
+        <a class="btn btn-primary btn-block" href="/app">Open Tinker <i data-lucide="arrow-right"></i></a>
+        <button class="btn btn-block" id="sign-out" type="button"><i data-lucide="log-out"></i>Sign out</button>
+      </div>
+
+      <div id="auth-forms">
+        <h1 id="auth-title">Welcome to Tinker</h1>
+        <p class="muted">Sign in or create a free account.</p>
+
+        <div class="tabs" role="tablist" aria-label="Sign in or create account">
+          <button role="tab" id="tab-signin" aria-selected="true" aria-controls="auth-form" type="button">Sign in</button>
+          <button role="tab" id="tab-signup" aria-selected="false" aria-controls="auth-form" type="button" tabindex="-1">Create account</button>
+        </div>
+
+        <button class="btn btn-block google-btn" id="google" type="button">
+          <svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>
+          <span id="google-label">Continue with Google</span>
+        </button>
+
+        <div class="divider"><span>or with email</span></div>
+
+        <form id="auth-form" novalidate>
+          <div class="field" id="name-field" hidden>
+            <label for="name">Name</label>
+            <div class="input-wrap">
+              <i data-lucide="user"></i>
+              <input id="name" name="name" type="text" autocomplete="name" placeholder="Your name" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="email">Email</label>
+            <div class="input-wrap">
+              <i data-lucide="mail"></i>
+              <input id="email" name="email" type="email" autocomplete="email" required placeholder="you@example.com" aria-describedby="email-error" />
+            </div>
+            <p class="field-error" id="email-error"></p>
+          </div>
+
+          <div class="field">
+            <div class="label-row">
+              <label for="password">Password</label>
+              <button type="button" class="link-btn" id="forgot">Forgot password?</button>
+            </div>
+            <div class="input-wrap">
+              <i data-lucide="lock"></i>
+              <input id="password" name="password" type="password" autocomplete="current-password" required minlength="6" aria-describedby="password-error password-hint" />
+              <button type="button" class="eye" id="toggle-password" aria-label="Show password" aria-pressed="false"><i data-lucide="eye"></i></button>
+            </div>
+            <p class="field-hint" id="password-hint" hidden>At least 6 characters.</p>
+            <p class="field-error" id="password-error"></p>
+          </div>
+
+          <p class="form-message" id="form-message" role="alert"></p>
+
+          <button class="btn btn-primary btn-block" id="submit" type="submit">
+            <span id="submit-label">Sign in</span>
+          </button>
+        </form>
+
+        <p class="fine-print">Prefer not to sign in? <a href="/app">Use Tinker without an account</a>. Your chats then stay in this browser.</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://unpkg.com/lucide@1.53.0/dist/umd/lucide.min.js"></script>
+  <script type="module" src="/firebase.js"></script>
+  <script type="module" src="/signin.js"></script>
+</body>
+</html>
