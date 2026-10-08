@@ -28,7 +28,8 @@ html { scroll-behavior: smooth; }
 .nav-links { display: flex; align-items: center; gap: 4px; }
 .nav-links a.text-link { color: var(--muted); text-decoration: none; font-size: 14px; padding: 8px 10px; border-radius: 8px; }
 .nav-links a.text-link:hover { color: var(--text); background: var(--surface-2); }
-.logo-mark.spin { animation: spin-slow 12s linear infinite; }
+/* Only the sparks turn, inside a still hex nut. */
+.logo-mark.spin path:not(:first-child) { transform-box: view-box; transform-origin: 12px 12px; animation: spin-slow 12s linear infinite; }
 @keyframes spin-slow { to { transform: rotate(360deg); } }
 @media (max-width: 720px) { .nav-links .text-link { display: none; } }
 
