@@ -261,3 +261,5 @@ select.model {
 .voice-hint { font-size: 13px; color: #9a958d; margin: 0; }
 @media (prefers-reduced-motion: reduce) { .orb-core { transition: none; } }
 .settings-link { margin-bottom: 8px; width: 100%; }
+.msg-images { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; margin-bottom: 6px; }
+.msg-images img { max-width: 220px; max-height: 180px; border-radius: var(--radius); border: 1px solid var(--border); object-fit: cover; }

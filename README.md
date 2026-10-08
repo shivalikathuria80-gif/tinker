@@ -13,6 +13,7 @@ No API key needed: it talks to the hosted Tinker server. Want to use your own Gr
 Inside Tinker you can use `/model`, `/skill`, `/connect`, `/undo`, `/clear` and `/exit`.
 
 - **`/undo`** takes back Tinker's last file change (or deletes a file it created). It asks first if you edited the file yourself since.
+- **`tinker login`** connects the terminal to your Tinker account (higher limits, and terminal chats show up in the web app). Use `tinker login --no-browser` over SSH, and `tinker logout` to disconnect.
 - **`tinker --resume`** continues your last chat in the current folder. Chats are saved in `~/.tinker/sessions/` (newest 30 kept), including the undo history.
 
 Requires Node 20.12+.
@@ -61,7 +62,7 @@ MCP servers in the terminal go in `~/.tinker/mcp.json`:
 
 ## Web app extras
 
-- **Attach files**: the paperclip adds text/code files (up to 30 KB each) to your message.
+- **Attach files and images**: the paperclip adds text/code files (up to 30 KB each) and up to 3 images. Images are answered by a model that can see (Qwen), even if another model is selected.
 - **Voice input**: the mic records you; Groq Whisper turns it into text.
 - **Voice mode**: a hands-free spoken conversation. Talk, Tinker answers out loud (short spoken answers), then listens again. Tap the orb to interrupt. Uses an **ElevenLabs** voice when `ELEVENLABS_API_KEY` is set on the server, otherwise the browser's built-in voice.
 - **Download / share**: download a chat as Markdown, or copy a share link (the chat is packed into the link, no account needed).
@@ -70,6 +71,10 @@ MCP servers in the terminal go in `~/.tinker/mcp.json`:
 - **Free-limit countdown**: if the free limit is reached, Tinker shows when you can send again.
 - **Auto-named chats**: after the first answer, a small model gives the chat a short title (never overwrites a name you chose).
 - **Your own Groq key** (optional, in Customize): stored only in your browser; your messages then use your own Groq limits instead of the shared ones.
+
+## Settings
+
+`/settings`: your name, theme (system/light/dark), default model, voice-mode voice (ElevenLabs voices or the browser voice), export all chats, delete the chats on this device, and delete your account with all its chats.
 
 ## Accounts (Firebase)
 
@@ -80,6 +85,10 @@ MCP servers in the terminal go in `~/.tinker/mcp.json`:
 ## Long chats
 
 Groq's free tier allows only a few thousand tokens per minute, so Tinker sends the newest messages and a short **summary** of older ones (made by a different model, so it doesn't use up the main model's limit).
+
+## Pages
+
+`/` landing · `/app` chat · `/signin` · `/settings` · `/privacy` · `/terms` · `/cli-login` (used by `tinker login`). Unknown pages show a friendly 404.
 
 ## Tests
 

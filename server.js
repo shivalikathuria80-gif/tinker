@@ -10,6 +10,7 @@
 //   /api/voices   -> the ElevenLabs voices people can pick in Settings
 
 import { createServer } from "node:http";
+import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { join, extname, dirname, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -200,6 +201,64 @@ async function handleTitle(req, res) {
   }
 }
 
+// ---------- Terminal sign-in (tinker login) ----------
+// 1. The terminal asks for a code.  2. You approve that code in the browser while signed in.
+// 3. The terminal picks up your sign-in key once (it's then deleted here). Codes expire after 5 minutes.
+// ponytail: kept in memory, so a server restart cancels logins in progress (just run tinker login again).
+const cliLogins = new Map(); // code → { pollToken, created, approved: { refreshToken, email } | null }
+
+function makeCode() {
+  const letters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O or 1/I, so it's easy to compare by eye
+  const pick = () => Array.from(randomBytes(4), (b) => letters[b % letters.length]).join("");
+  return `${pick()}-${pick()}`;
+}
+
+function cleanupCliLogins() {
+  for (const [code, entry] of cliLogins) if (Date.now() - entry.created > 5 * 60_000) cliLogins.delete(code);
+}
+
+async function handleCliLogin(req, res, step) {
+  cleanupCliLogins();
+  const json = (status, data) => res.writeHead(status, { "Content-Type": "application/json" }).end(JSON.stringify(data));
+  if (step === "start") {
+    if (cliLogins.size > 1000) return json(503, { error: "Too many logins in progress. Try again in a minute." });
+    const code = makeCode();
+    const pollToken = randomBytes(24).toString("hex");
+    cliLogins.set(code, { pollToken, created: Date.now(), approved: null });
+    return json(200, { code, pollToken });
+  }
+  const body = await readJson(req).catch(() => ({}));
+  const entry = cliLogins.get(String(body.code || "").toUpperCase());
+  if (step === "approve") {
+    // Only a signed-in browser can approve: we check its Firebase token.
+    const token = (req.headers.authorization || "").replace(/^Bearer /, "");
+    const uid = await verifyIdToken(token, FIREBASE_PROJECT_ID);
+    if (!uid) return json(401, { error: "Please sign in first." });
+    if (!entry) return json(404, { error: "That code has expired or doesn't exist. Run tinker login again." });
+    if (typeof body.refreshToken !== "string" || body.refreshToken.length < 20) return json(400, { error: "Missing sign-in details." });
+    entry.approved = { refreshToken: body.refreshToken, email: String(body.email || "") };
+    return json(200, { ok: true });
+  }
+  if (step === "poll") {
+    if (!entry || entry.pollToken !== body.pollToken) return json(404, { error: "expired" });
+    if (!entry.approved) return json(202, { waiting: true });
+    cliLogins.delete(body.code.toUpperCase()); // hand it over once, then forget it
+    return json(200, entry.approved);
+  }
+  json(404, { error: "Unknown step" });
+}
+
+// Models that can look at images. ponytail: hand-kept list, because Groq's model list doesn't say which can see.
+const VISION_MODELS = ["qwen/qwen3.8-27b"];
+
+// Accepts up to 3 images as data URLs (PNG, JPEG, WebP or GIF), each under ~4 MB.
+function validImages(images) {
+  if (!Array.isArray(images)) return [];
+  return images
+    .filter((url) => typeof url === "string" && url.length < 4_000_000 && /^data:image\/(png|jpeg|webp|gif);base64,/.test(url))
+    .slice(0, 3);
+}
+
 async function handleChat(req, res) {
   const wait = await limited(req);
   if (wait) return tooMany(res, wait);
@@ -212,10 +271,33 @@ async function handleChat(req, res) {
   }
 
   // Only pass through plain user/assistant text messages (minus our tool status lines).
-  const messages = (Array.isArray(payload.messages) ? payload.messages : [])
+  const raw = (Array.isArray(payload.messages) ? payload.messages : [])
     .filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
-    .map((m) => ({ role: m.role, content: m.content.replace(/^\[\[tool\]\].*\n?/gm, "") }))
     .slice(-40);
+  const lastIndex = raw.length - 1;
+  let hasImages = false;
+  const messages = raw.map((m, i) => {
+    const content = m.content.replace(/^\[\[tool\]\].*\n?/gm, "");
+    const images = validImages(m.images);
+    if (!images.length) return { role: m.role, content };
+    // Images: only the newest message sends them (keeps requests small); older ones get a short note.
+    if (m.role !== "user" || i !== lastIndex) return { role: m.role, content: `${content}\n[An image was attached here earlier]` };
+    hasImages = true;
+    return { role: "user", content: [{ type: "text", text: content }, ...images.map((url) => ({ type: "image_url", image_url: { url } }))] };
+  });
+
+  // Not every model can see images. If needed, answer with one that can, and say so.
+  let modelId = payload.model || DEFAULT_MODEL;
+  let switchedModel = null;
+  if (hasImages && !VISION_MODELS.includes(modelId)) {
+    const available = (await getModels()).map((m) => m.id);
+    switchedModel = VISION_MODELS.find((id) => available.includes(id));
+    if (!switchedModel) {
+      res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" }).end("[[error]] None of the available models can look at images right now.");
+      return;
+    }
+    modelId = switchedModel;
+  }
 
   // Skill: a built-in id, or a custom { name, instructions } written by the user.
   const preset = SKILLS.find((s) => s.id === payload.skill?.id);
@@ -236,12 +318,13 @@ async function handleChat(req, res) {
     .map((s) => ({ name: String(s.name || "MCP").slice(0, 40), url: s.url, token: typeof s.token === "string" ? s.token : "" }));
 
   res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-cache" });
+  if (switchedModel) res.write(`[[tool]] Using ${switchedModel} to look at the image\n`);
   const controller = new AbortController();
   res.on("close", () => controller.abort());
 
   try {
     await streamChat({
-      modelId: payload.model || DEFAULT_MODEL,
+      modelId,
       messages,
       signal: controller.signal,
       skill,
@@ -286,6 +369,8 @@ async function route(req, res) {
   if (req.method === "POST" && pathname === "/api/title") return handleTitle(req, res);
   if (req.method === "POST" && pathname === "/api/speak") return handleSpeak(req, res);
   if (pathname === "/api/voices") return handleVoices(req, res);
+  const cliStep = pathname.match(/^\/api\/cli-login\/(start|approve|poll)$/)?.[1];
+  if (req.method === "POST" && cliStep) return handleCliLogin(req, res, cliStep);
   if (pathname === "/api/models") {
     const list = (await getModels()).map((m) => ({ ...m, ready: isConfigured(m.provider) }));
     res.writeHead(200, { "Content-Type": "application/json" });

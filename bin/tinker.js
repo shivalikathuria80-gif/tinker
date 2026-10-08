@@ -18,9 +18,17 @@ import * as groq from "../lib/providers.js";
 import { CONNECTORS, buildTools } from "../lib/connectors.js";
 import { localTools, undoLast } from "../lib/local-tools.js";
 import { saveSession, latestSession } from "../lib/sessions.js";
+import * as account from "../lib/cloud.js";
+import { exec } from "node:child_process";
 
 const SERVER = (process.env.TINKER_SERVER || "https://tinker-ai.onrender.com").replace(/\/$/, "");
 const useServer = !groq.isConfigured();
+
+// Sends your account sign-in (if you ran `tinker login`) so you get your account's limits.
+async function authHeader() {
+  const token = await account.idToken().catch(() => null);
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 const TERMINAL_CONNECTORS = [
   { id: "files", label: "Local files + commands", description: "Read/write files and run commands in this folder (asks first)" },
   ...CONNECTORS,
@@ -55,7 +63,7 @@ async function complete(body, onToken) {
   if (!useServer) return groq.groqStream(body, undefined, undefined, onToken); // own key: stream straight from Groq
   const response = await fetch(`${SERVER}/api/complete`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(await authHeader()) },
     body: JSON.stringify(body),
   });
   if (!response.ok) throw new Error(await response.text());
@@ -66,7 +74,7 @@ async function complete(body, onToken) {
 async function streamFromServer({ modelId, messages, skill, onToken }) {
   const response = await fetch(`${SERVER}/api/chat`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(await authHeader()) },
     body: JSON.stringify({ model: modelId, messages, skill }),
   });
   if (!response.ok) throw new Error(await response.text());
@@ -82,6 +90,39 @@ async function streamFromServer({ modelId, messages, skill, onToken }) {
 }
 
 // ---------- Start ----------
+
+// ---------- tinker login / tinker logout ----------
+
+function openBrowser(url) {
+  if (process.argv.includes("--no-browser")) return; // e.g. over SSH: just print the link
+  if (!/^https?:\/\/[\w.:/?=&%-]+$/.test(url)) return; // only open plain web links
+  const command = process.platform === "win32" ? `start "" "${url}"` : process.platform === "darwin" ? `open "${url}"` : `xdg-open "${url}"`;
+  exec(command, () => {}); // if it can't open, the link is printed anyway
+}
+
+if (process.argv[2] === "login") {
+  console.log(accent(LOGO));
+  try {
+    const { email } = await account.login(SERVER, {
+      openBrowser,
+      print: (code, url) => {
+        console.log(`\n  Your code: ${bold(code)}\n`);
+        console.log(`  Opening your browser to connect this terminal. If it doesn't open, go to:\n  ${accent(url)}\n`);
+        console.log(dim("  Waiting for you to approve it in the browser…"));
+      },
+    });
+    console.log(`\n  ${accent("✓")} Connected as ${bold(email)}. Your terminal chats will now be saved to your account.\n`);
+  } catch (error) {
+    console.log(`\n\x1b[31m  ${error.message}\x1b[0m\n`);
+    process.exit(1);
+  }
+  process.exit(0);
+}
+if (process.argv[2] === "logout") {
+  await account.logout();
+  console.log("Logged out. This terminal no longer uses your account.");
+  process.exit(0);
+}
 
 console.log(accent(LOGO));
 console.log(dim("\n  Free AI agents in your terminal\n"));
@@ -163,6 +204,8 @@ const folderNote =
   "Use run_command for tests, builds and git. The user approves every change and command. Keep tool use small: the free limit is tight.";
 
 if (projectRules) console.log(dim("  Loaded project rules from TINKER.md"));
+const signedIn = await account.loadAuth();
+console.log(dim(signedIn?.email ? `  Signed in as ${signedIn.email}` : "  Tip: run `tinker login` to use your account (higher limits, chats saved to your account)"));
 console.log(dim(`  model: ${modelId}   ·   folder: ${process.cwd()}   ·   /help for commands\n`));
 
 while (true) {
@@ -250,6 +293,17 @@ while (true) {
     session.model = modelId;
     session.undo = undoStack.slice(-20); // ponytail: keeps full file copies; fine for normal source files
     await saveSession(session).catch((error) => console.log(dim(`  (Couldn't save this chat: ${error.message})`)));
+    // Logged in? Also save it to your account, so it shows up in the web app.
+    const firstQuestion = history.find((m) => m.role === "user")?.content || "Terminal chat";
+    account
+      .saveChatToAccount({
+        id: `cli-${session.id}`,
+        title: `⌨ ${firstQuestion.slice(0, 58)}`,
+        messages: history.filter((m) => typeof m.content === "string").map(({ role, content }) => ({ role, content })),
+        updated: Date.now(),
+        source: "terminal",
+      })
+      .catch(() => {});
   } catch (error) {
     history.pop();
     console.log(`\x1b[31mError:\x1b[0m ${error.message}`);

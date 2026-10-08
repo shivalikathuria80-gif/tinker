@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Connect the terminal · Tinker</title>
+  <meta name="robots" content="noindex" />
+  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  <meta name="theme-color" content="#c8553d" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;650&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet" />
+  <script src="/theme.js"></script>
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/signin.css" />
+</head>
+<body>
+  <main class="auth" style="grid-template-columns:1fr">
+    <section class="auth-panel" aria-labelledby="title">
+      <a href="/" class="logo" style="margin-bottom:32px"><svg class="logo-mark" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.5l8.23 4.75v9.5L12 21.5l-8.23-4.75v-9.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9.2 9.2L12 10.9l2.8-1.7-1.7 2.8 1.7 2.8-2.8-1.7-2.8 1.7 1.7-2.8z" opacity=".45"/><path d="M12 6.2l1.5 4.3 4.3 1.5-4.3 1.5-1.5 4.3-1.5-4.3-4.3-1.5 4.3-1.5z"/></svg>Tinker</a>
+
+      <div id="loading"><p class="muted">Checking your sign-in…</p></div>
+
+      <div id="need-signin" hidden>
+        <h1 id="title">Connect the terminal</h1>
+        <p class="muted">Sign in first, then you'll come back here to connect.</p>
+        <a class="btn btn-primary btn-block" id="signin-link" href="/signin">Sign in</a>
+      </div>
+
+      <div id="approve" hidden>
+        <h1>Connect the terminal?</h1>
+        <p class="muted" id="approve-as"></p>
+        <p>Check that this code matches the one in your terminal:</p>
+        <p class="device-code" id="code" aria-label="Code"></p>
+        <p class="form-message" id="message" role="alert"></p>
+        <button class="btn btn-primary btn-block" id="connect" type="button">Yes, connect this terminal</button>
+        <p class="fine-print">Only connect if you just ran <code>tinker login</code> yourself. The terminal will be able to use your account and save chats to it. You can disconnect anytime with <code>tinker logout</code>.</p>
+      </div>
+
+      <div id="done" hidden class="signed-in">
+        <h1>Terminal connected</h1>
+        <p class="muted">You can close this tab and go back to your terminal.</p>
+      </div>
+
+      <div id="bad-code" hidden>
+        <h1>No code found</h1>
+        <p class="muted">Run <code>tinker login</code> in your terminal and open the link it shows.</p>
+      </div>
+    </section>
+  </main>
+  <style>
+    .device-code { font: 600 32px/1.2 var(--mono); letter-spacing: .12em; text-align: center; padding: 16px; border: 1px dashed var(--border); border-radius: var(--radius); background: var(--surface); margin: 8px 0 16px; }
+  </style>
+  <script type="module" src="/firebase.js"></script>
+  <script type="module">
+    const cloud = window.tinkerCloud;
+    const $ = (id) => document.getElementById(id);
+    const code = (new URLSearchParams(location.search).get("code") || "").toUpperCase();
+    const show = (id) => ["loading", "need-signin", "approve", "done", "bad-code"].forEach((x) => ($(x).hidden = x !== id));
+
+    if (!/^[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(code)) {
+      show("bad-code");
+    } else {
+      $("code").textContent = code;
+      $("signin-link").href = `/signin?next=${encodeURIComponent(`/cli-login?code=${code}`)}`;
+      cloud.onUserChange((user) => {
+        if ($("done").hidden === false) return;
+        if (!user) return show("need-signin");
+        $("approve-as").textContent = `Signed in as ${user.email}`;
+        show("approve");
+      });
+    }
+
+    $("connect").onclick = async () => {
+      const user = cloud.currentUser();
+      $("connect").disabled = true;
+      $("message").textContent = "";
+      try {
+        const response = await fetch("/api/cli-login/approve", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${await cloud.idToken()}` },
+          body: JSON.stringify({ code, refreshToken: user.refreshToken, email: user.email }),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error);
+        show("done");
+      } catch (error) {
+        $("message").textContent = error.message || "Couldn't connect. Try again.";
+        $("connect").disabled = false;
+      }
+    };
+  </script>
+</body>
+</html>

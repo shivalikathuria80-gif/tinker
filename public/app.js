@@ -305,6 +305,18 @@ function messageElement(message, index, isLast) {
       }
       div.appendChild(chips);
     }
+    if (message.images?.length) {
+      const gallery = document.createElement("div");
+      gallery.className = "msg-images";
+      message.images.forEach((src, i) => {
+        const img = document.createElement("img");
+        img.src = src;
+        img.alt = `Attached image ${i + 1}`;
+        img.loading = "lazy";
+        gallery.appendChild(img);
+      });
+      div.appendChild(gallery);
+    }
     const bubble = document.createElement("div");
     bubble.className = "bubble";
     bubble.textContent = message.display ?? message.content; // display = what the user typed, without file contents
@@ -402,8 +414,18 @@ async function sendMessage(text) {
     activeId = chat.id;
   }
   // Attached files are added to the message text so the AI can read them.
-  const fileText = attachments.map((f) => `\n\nFile: ${f.name}\n\`\`\`\n${f.text}\n\`\`\``).join("");
-  chat.messages.push({ role: "user", content: text + fileText, display: text, files: attachments.map((f) => f.name) });
+  const fileText = attachments
+    .filter((f) => f.text !== undefined)
+    .map((f) => `\n\nFile: ${f.name}\n\`\`\`\n${f.text}\n\`\`\``)
+    .join("");
+  const images = attachments.filter((f) => f.image).map((f) => f.image);
+  chat.messages.push({
+    role: "user",
+    content: text + fileText,
+    display: text,
+    files: attachments.map((f) => f.name),
+    ...(images.length ? { images } : {}),
+  });
   attachments = [];
   renderAttachments();
   els.input.value = "";
@@ -818,15 +840,41 @@ function renderAttachments() {
 }
 
 document.getElementById("attach").onclick = () => document.getElementById("file-input").click();
+// Images are shrunk in the browser (max 1280px, JPEG) so they upload fast and fit the AI's limits.
+async function shrinkImage(file) {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, 1280 / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#fff"; // transparent PNGs get a white background instead of black
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL("image/jpeg", 0.82);
+}
+
 document.getElementById("file-input").onchange = async (e) => {
   for (const file of e.target.files) {
+    if (file.type.startsWith("image/")) {
+      if (attachments.filter((a) => a.image).length >= 3) {
+        toast("You can attach up to 3 images per message.");
+        continue;
+      }
+      try {
+        attachments.push({ name: file.name, image: await shrinkImage(file) });
+      } catch {
+        toast(`Couldn't read ${file.name}. Try a PNG or JPEG image.`);
+      }
+      continue;
+    }
     if (file.size > MAX_FILE_SIZE) {
       toast(`${file.name} is too big (max 30 KB on the free plan).`);
       continue;
     }
     const text = await file.text();
     if (text.includes("\u0000")) {
-      toast(`${file.name} isn't a text file. Only text and code files can be attached.`);
+      toast(`${file.name} isn't a text or image file. Attach code, text or images.`);
       continue;
     }
     attachments.push({ name: file.name, text });
