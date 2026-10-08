@@ -1,6 +1,7 @@
 // Voice mode: a hands-free spoken conversation.
 // Loop: listen → notice you stopped talking → turn speech into text (Groq Whisper, /api/transcribe)
-//       → send it as a normal chat message → read the answer aloud (the browser's built-in voices) → listen again.
+//       → send it as a normal chat message → read the answer aloud → listen again.
+// Voice: ElevenLabs (via /api/speak) when set up, otherwise the browser's built-in voice.
 // Uses helpers from app.js: sendMessage, activeChat, authHeaders, toast, controller, limitedUntil.
 
 const voiceEls = {
@@ -108,10 +109,50 @@ function pickVoice() {
   return sameLang.find((v) => /natural|neural|google|premium|enhanced/i.test(v.name)) || sameLang[0] || voices[0] || null;
 }
 
-// Speaks sentence by sentence (long single utterances get cut off in some browsers).
+// ElevenLabs voice (through our server, which keeps the key secret). Returns false if it couldn't play.
+let elevenLabsReady = true; // becomes false if the server says ElevenLabs isn't set up
+let currentAudio = null;
+
+async function speakWithElevenLabs(text) {
+  const response = await fetch("/api/speak", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+    body: JSON.stringify({ text }),
+  });
+  if (response.status === 503) elevenLabsReady = false;
+  if (!response.ok) return false;
+  const url = URL.createObjectURL(await response.blob());
+  if (!voice.speaking || !voice.active) return true; // interrupted while it was loading
+  currentAudio = new Audio(url);
+  await new Promise((resolve) => {
+    currentAudio.onended = currentAudio.onerror = currentAudio.onpause = resolve;
+    currentAudio.play().catch(resolve);
+  });
+  URL.revokeObjectURL(url);
+  currentAudio = null;
+  return true;
+}
+
+// Reads the answer aloud: ElevenLabs if available, otherwise the browser's built-in voice.
 async function speak(text) {
-  if (!("speechSynthesis" in window) || !text) return;
+  if (!text) return;
   voice.speaking = true;
+  if (elevenLabsReady) {
+    const played = await speakWithElevenLabs(text).catch(() => false);
+    if (played) {
+      voice.speaking = false;
+      return;
+    }
+  }
+  await speakWithBrowser(text);
+}
+
+// Browser voice, sentence by sentence (long single utterances get cut off in some browsers).
+async function speakWithBrowser(text) {
+  if (!("speechSynthesis" in window)) {
+    voice.speaking = false;
+    return;
+  }
   const sentences = text.match(/[^.!?]+[.!?]*/g) || [text];
   const chosen = pickVoice();
   for (const sentence of sentences) {
@@ -131,6 +172,7 @@ async function speak(text) {
 
 function stopSpeaking() {
   voice.speaking = false;
+  currentAudio?.pause();
   speechSynthesis?.cancel();
 }
 

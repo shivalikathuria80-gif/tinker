@@ -63,7 +63,7 @@ MCP servers in the terminal go in `~/.tinker/mcp.json`:
 
 - **Attach files**: the paperclip adds text/code files (up to 30 KB each) to your message.
 - **Voice input**: the mic records you; Groq Whisper turns it into text.
-- **Voice mode**: a hands-free spoken conversation. Talk, Tinker answers out loud (short spoken answers), then listens again. Tap the orb to interrupt.
+- **Voice mode**: a hands-free spoken conversation. Talk, Tinker answers out loud (short spoken answers), then listens again. Tap the orb to interrupt. Uses an **ElevenLabs** voice when `ELEVENLABS_API_KEY` is set on the server, otherwise the browser's built-in voice.
 - **Download / share**: download a chat as Markdown, or copy a share link (the chat is packed into the link, no account needed).
 - **Chat controls**: Copy buttons on code, Stop while answering, Regenerate, Edit your messages, search and rename chats.
 - **Install as an app**: Tinker is a PWA — use "Install app" in the sidebar (or your browser's install icon).

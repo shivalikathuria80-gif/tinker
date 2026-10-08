@@ -6,6 +6,7 @@
 //   /api/complete -> one non-streamed AI reply, used by the terminal app's own agent loop
 //   /api/transcribe -> turns a voice recording into text (Groq Whisper)
 //   /api/title    -> a short title for a new chat, based on its first message
+//   /api/speak    -> reads text aloud with ElevenLabs (voice mode)
 
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
@@ -93,6 +94,37 @@ async function handleComplete(req, res) {
 }
 
 // Voice input: the browser sends recorded audio, we ask Groq Whisper for the text.
+// Voice mode: turns Tinker's answer into speech with ElevenLabs and streams the MP3 back.
+// The ElevenLabs key stays on the server. Without a key, the web app uses the browser's own voice.
+const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "21m00Tcm4TlvDq8ikWAM"; // "Rachel", a free premade voice
+const MAX_SPEAK_CHARS = 600; // voice answers are short; this protects the monthly ElevenLabs credits
+
+async function handleSpeak(req, res) {
+  if (!process.env.ELEVENLABS_API_KEY) return res.writeHead(503, { "Content-Type": "text/plain" }).end("ElevenLabs is not set up");
+  const wait = await limited(req);
+  if (wait) return tooMany(res, wait);
+  const { text = "" } = await readJson(req);
+  const clean = String(text).trim().slice(0, MAX_SPEAK_CHARS);
+  if (!clean) return res.writeHead(400).end("Nothing to say");
+
+  const response = await fetch(
+    `https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}/stream?output_format=mp3_44100_64`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "xi-api-key": process.env.ELEVENLABS_API_KEY },
+      body: JSON.stringify({ text: clean, model_id: "eleven_flash_v2_5" }),
+    },
+  );
+  if (!response.ok) {
+    const detail = (await response.text()).slice(0, 200);
+    console.error("ElevenLabs error", response.status, detail);
+    return res.writeHead(502, { "Content-Type": "text/plain" }).end(`ElevenLabs returned ${response.status}`);
+  }
+  res.writeHead(200, { "Content-Type": "audio/mpeg", "Cache-Control": "no-store" });
+  for await (const chunk of response.body) res.write(chunk); // stream: playback can start before it's all generated
+  res.end();
+}
+
 async function handleTranscribe(req, res) {
   const wait = await limited(req);
   if (wait) return tooMany(res, wait);
@@ -216,6 +248,7 @@ async function route(req, res) {
   if (req.method === "POST" && pathname === "/api/complete") return handleComplete(req, res);
   if (req.method === "POST" && pathname === "/api/transcribe") return handleTranscribe(req, res);
   if (req.method === "POST" && pathname === "/api/title") return handleTitle(req, res);
+  if (req.method === "POST" && pathname === "/api/speak") return handleSpeak(req, res);
   if (pathname === "/api/models") {
     const list = (await getModels()).map((m) => ({ ...m, ready: isConfigured(m.provider) }));
     res.writeHead(200, { "Content-Type": "application/json" });
