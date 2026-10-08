@@ -169,3 +169,17 @@ html { scroll-behavior: smooth; }
 .install-line { display: flex; width: fit-content; }
 .install-line code { min-width: 0; }
 .tile .viz { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* ---------- Simple document pages (privacy, terms, 404) ---------- */
+.doc { max-width: 720px; margin: 0 auto; padding: 48px 16px 24px; }
+.doc h1 { font-size: clamp(30px, 4vw, 40px); letter-spacing: -.025em; margin: 0 0 8px; }
+.doc .updated { color: var(--muted); font-size: 14px; margin: 0 0 32px; }
+.doc h2 { font-size: 20px; margin: 32px 0 8px; }
+.doc p, .doc li { line-height: 1.7; }
+.doc ul { padding-left: 22px; }
+.doc table { width: 100%; border-collapse: collapse; font-size: 15px; margin: 8px 0; }
+.doc th, .doc td { text-align: left; border-bottom: 1px solid var(--border); padding: 8px 10px; vertical-align: top; }
+.doc th { color: var(--muted); font-weight: 500; }
+.table-scroll { overflow-x: auto; }
+.not-found { min-height: 60dvh; display: grid; place-items: center; text-align: center; padding: 0 16px; }
+.not-found .code { font: 64px var(--mono); color: var(--accent); margin: 0; }

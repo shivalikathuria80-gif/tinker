@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Settings · Tinker</title>
+  <meta name="robots" content="noindex" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="theme-color" content="#c8553d" />
+  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;650&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet" />
+  <script src="/theme.js"></script>
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/landing.css" />
+  <link rel="stylesheet" href="/settings.css" />
+</head>
+<body>
+  <header class="site-nav">
+    <div class="wrap">
+      <a href="/" class="logo" aria-label="Tinker home"><svg class="logo-mark" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.5l8.23 4.75v9.5L12 21.5l-8.23-4.75v-9.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9.2 9.2L12 10.9l2.8-1.7-1.7 2.8 1.7 2.8-2.8-1.7-2.8 1.7 1.7-2.8z" opacity=".45"/><path d="M12 6.2l1.5 4.3 4.3 1.5-4.3 1.5-1.5 4.3-1.5-4.3-4.3-1.5 4.3-1.5z"/></svg>Tinker</a>
+      <nav class="nav-links" aria-label="Main"><a class="btn btn-primary" href="/app"><i data-lucide="arrow-left"></i>Back to chats</a></nav>
+    </div>
+  </header>
+
+  <main class="settings" id="main">
+    <h1>Settings</h1>
+
+    <!-- Account -->
+    <section class="card-section" aria-labelledby="account-title">
+      <h2 id="account-title"><i data-lucide="user-round"></i>Account</h2>
+      <div id="signed-out-box">
+        <p class="muted">You're not signed in. Your chats are saved only in this browser.</p>
+        <a class="btn btn-primary" href="/signin?next=/settings"><i data-lucide="log-in"></i>Sign in or create an account</a>
+      </div>
+      <div id="signed-in-box" hidden>
+        <form id="name-form" class="row-form">
+          <label for="display-name">Name</label>
+          <div class="row">
+            <input id="display-name" autocomplete="name" maxlength="60" />
+            <button class="btn" type="submit">Save</button>
+          </div>
+        </form>
+        <p class="muted" id="account-email"></p>
+        <button class="btn" type="button" id="sign-out"><i data-lucide="log-out"></i>Sign out</button>
+      </div>
+    </section>
+
+    <!-- Appearance -->
+    <section class="card-section" aria-labelledby="theme-title">
+      <h2 id="theme-title"><i data-lucide="sun-moon"></i>Appearance</h2>
+      <div class="segmented" role="radiogroup" aria-labelledby="theme-title">
+        <label><input type="radio" name="theme" value="system" /><i data-lucide="monitor"></i>System</label>
+        <label><input type="radio" name="theme" value="light" /><i data-lucide="sun"></i>Light</label>
+        <label><input type="radio" name="theme" value="dark" /><i data-lucide="moon"></i>Dark</label>
+      </div>
+    </section>
+
+    <!-- Chat -->
+    <section class="card-section" aria-labelledby="chat-title">
+      <h2 id="chat-title"><i data-lucide="message-square"></i>Chat</h2>
+      <label for="default-model">Default model</label>
+      <select id="default-model" class="model"><option>Loading models…</option></select>
+      <p class="muted small">Used for new chats. You can still switch in the chat.</p>
+    </section>
+
+    <!-- Voice -->
+    <section class="card-section" aria-labelledby="voice-title">
+      <h2 id="voice-title"><i data-lucide="audio-lines"></i>Voice mode voice</h2>
+      <div id="voice-list" class="voice-list" role="radiogroup" aria-labelledby="voice-title"><p class="muted">Loading voices…</p></div>
+    </section>
+
+    <!-- Data -->
+    <section class="card-section" aria-labelledby="data-title">
+      <h2 id="data-title"><i data-lucide="database"></i>Your data</h2>
+      <p class="muted" id="data-summary"></p>
+      <div class="row wrap-row">
+        <button class="btn" type="button" id="export"><i data-lucide="download"></i>Export all chats</button>
+        <button class="btn danger-outline" type="button" id="clear-local"><i data-lucide="eraser"></i>Delete chats on this device</button>
+      </div>
+    </section>
+
+    <!-- Danger zone -->
+    <section class="card-section danger" aria-labelledby="danger-title" id="danger-zone" hidden>
+      <h2 id="danger-title"><i data-lucide="triangle-alert"></i>Delete account</h2>
+      <p>This permanently deletes your account and <strong>every chat saved to it</strong>. This can't be undone. Export your chats first if you want to keep them.</p>
+      <form id="delete-form">
+        <div id="password-confirm" hidden>
+          <label for="delete-password">Your password</label>
+          <input id="delete-password" type="password" autocomplete="current-password" />
+        </div>
+        <label for="delete-confirm">Type <strong>DELETE</strong> to confirm</label>
+        <input id="delete-confirm" autocomplete="off" />
+        <button class="btn btn-danger" type="submit" id="delete-account"><i data-lucide="trash-2"></i>Delete my account</button>
+      </form>
+    </section>
+
+    <p class="status" id="status" role="status"></p>
+  </main>
+
+  <script src="https://unpkg.com/lucide@1.53.0/dist/umd/lucide.min.js"></script>
+  <script type="module" src="/firebase.js"></script>
+  <script type="module" src="/settings.js"></script>
+</body>
+</html>

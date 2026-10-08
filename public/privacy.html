@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Privacy · Tinker</title>
+  <meta name="description" content="What Tinker stores, where it goes, and how to delete it." />
+  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  <meta name="theme-color" content="#c8553d" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;650&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/landing.css" />
+  <script src="/theme.js"></script>
+</head>
+<body>
+  <header class="site-nav">
+    <div class="wrap">
+      <a href="/" class="logo" aria-label="Tinker home"><svg class="logo-mark" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.5l8.23 4.75v9.5L12 21.5l-8.23-4.75v-9.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9.2 9.2L12 10.9l2.8-1.7-1.7 2.8 1.7 2.8-2.8-1.7-2.8 1.7 1.7-2.8z" opacity=".45"/><path d="M12 6.2l1.5 4.3 4.3 1.5-4.3 1.5-1.5 4.3-1.5-4.3-4.3-1.5 4.3-1.5z"/></svg>Tinker</a>
+      <nav class="nav-links" aria-label="Main"><a class="btn signin" href="/signin">Sign in</a><a class="btn btn-primary" href="/app">Open Tinker</a></nav>
+    </div>
+  </header>
+
+  <main class="doc" id="main">
+    <h1>Privacy</h1>
+    <p class="updated">Last updated: October 8, 2026</p>
+    <p>Tinker is a free, open-source AI assistant. This page explains, in plain language, what data it handles and where that data goes. The short version: we don't sell data, show ads, or keep your messages on our own server.</p>
+
+    <h2>If you don't sign in</h2>
+    <ul>
+      <li>Your chats are stored <strong>only in your browser</strong>. Clearing your browser data deletes them.</li>
+      <li>Each message passes through the Tinker server to the AI provider to get an answer. The server does not save message contents.</li>
+      <li>For fair limits, the server keeps your IP address in memory for about a minute to count requests. It is not written to disk.</li>
+    </ul>
+
+    <h2>If you sign in</h2>
+    <ul>
+      <li>Sign-in is handled by <strong>Google Firebase Authentication</strong> (Google or email + password). Tinker receives your name, email and a user ID. Tinker never sees your password.</li>
+      <li>Your chats are saved in <strong>Google Firestore</strong> under your account, so they sync across devices. Security rules mean only you can read or change them.</li>
+      <li>In <a href="/settings">Settings</a> you can export all your chats, or delete your account and every saved chat, at any time.</li>
+    </ul>
+
+    <h2>Services that process your data</h2>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th scope="col">Service</th><th scope="col">What it receives</th><th scope="col">Why</th></tr></thead>
+        <tbody>
+          <tr><td>Groq</td><td>Your messages, attached files and images, voice recordings</td><td>Answers, web search, running code, speech-to-text</td></tr>
+          <tr><td>ElevenLabs</td><td>The text of answers in voice mode</td><td>Reading answers aloud</td></tr>
+          <tr><td>Google Firebase</td><td>Account details and saved chats (signed-in users)</td><td>Sign-in and syncing chats</td></tr>
+          <tr><td>Render</td><td>Requests to the website (standard hosting logs)</td><td>Hosting the Tinker server</td></tr>
+          <tr><td>Websites, GitHub, MCP servers</td><td>Only what a connector you turned on asks for</td><td>Reading pages and repos, using your tools</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>Things to know</h2>
+    <ul>
+      <li><strong>Share links</strong> contain the whole chat inside the link. Anyone with the link can read it.</li>
+      <li><strong>Your own Groq key</strong> (optional) is stored in your browser and sent through the Tinker server to Groq with each message. It is not saved on the server.</li>
+      <li><strong>MCP access tokens</strong> you add are stored in your browser and sent to that MCP server when you chat.</li>
+      <li>The <strong>terminal app</strong> keeps chats and settings on your computer in <code>~/.tinker/</code>. If you run <code>tinker login</code>, terminal chats are also saved to your account.</li>
+      <li>Tinker is not intended for children under 13.</li>
+    </ul>
+
+    <h2>Questions</h2>
+    <p>Open an issue on <a href="https://github.com/shivalikathuria80-gif/tinker/issues">GitHub</a>. Tinker's code is public, so you can check exactly what it does.</p>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap"><span>Tinker · free AI agents for everyone</span><span><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · <a href="https://github.com/shivalikathuria80-gif/tinker">GitHub</a></span></div>
+  </footer>
+</body>
+</html>

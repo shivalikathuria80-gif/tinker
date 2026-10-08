@@ -83,8 +83,8 @@ function renderAccount() {
   const button = document.getElementById("sign-in");
   const label = cloudUser ? (cloudUser.displayName || cloudUser.email || "Account").split(" ")[0] : "Sign in";
   button.lastChild.textContent = ` ${label}`;
-  button.title = cloudUser ? `Signed in as ${cloudUser.email}. Click to sign out.` : "Sign in with Google to save chats to your account";
-  button.setAttribute("aria-label", cloudUser ? `Signed in as ${cloudUser.email}. Sign out` : "Sign in with Google");
+  button.title = cloudUser ? `Signed in as ${cloudUser.email}. Open account settings.` : "Sign in to save chats to your account";
+  button.setAttribute("aria-label", cloudUser ? `Signed in as ${cloudUser.email}. Open account settings` : "Sign in");
 }
 
 function setupAccount() {
@@ -95,8 +95,7 @@ function setupAccount() {
       location.assign("/signin?next=/app"); // the sign-in page offers Google and email + password
       return;
     }
-    if (!confirm(`Sign out of ${cloudUser.email}? Your chats stay saved in your account.`)) return;
-    await cloud.signOut();
+    location.assign("/settings"); // account, sign out and more live in Settings
   };
   cloud.onUserChange(async (user) => {
     const wasSignedIn = Boolean(cloudUser);

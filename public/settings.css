@@ -1,0 +1,45 @@
+/* Settings page. Uses the tokens from styles.css. */
+.settings { max-width: 680px; margin: 0 auto; padding: 32px 16px 64px; }
+.settings h1 { font-size: 32px; letter-spacing: -.02em; margin: 0 0 20px; }
+.card-section { border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); padding: 20px; margin-bottom: 16px; }
+.card-section h2 { font-size: 17px; margin: 0 0 14px; display: flex; align-items: center; gap: 8px; }
+.card-section h2 svg { width: 18px; height: 18px; color: var(--accent); }
+.card-section label { display: block; font-size: 14px; font-weight: 500; margin: 0 0 6px; }
+.card-section input:not([type="radio"]), .card-section select {
+  width: 100%; min-height: 42px; padding: 0 12px; font: 15px var(--font);
+  border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); color: var(--text);
+}
+.card-section .muted { margin: 0 0 12px; }
+.muted.small { font-size: 13px; margin-top: 8px; }
+.btn svg { width: 16px; height: 16px; }
+.row { display: flex; gap: 8px; }
+.row input { flex: 1; min-width: 0; }
+.wrap-row { flex-wrap: wrap; }
+.row-form { margin-bottom: 12px; }
+
+.segmented { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.segmented label { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; margin: 0; border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; font-weight: 500; }
+.segmented label:has(input:checked) { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.segmented label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.segmented input { position: absolute; opacity: 0; pointer-events: none; }
+.segmented svg { width: 16px; height: 16px; }
+
+.voice-list { display: grid; gap: 6px; max-height: 360px; overflow-y: auto; }
+.card-section .voice-option { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; margin: 0 !important; font-weight: 400 !important; }
+.voice-option:has(input:checked) { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.voice-option input { accent-color: var(--accent); width: 18px; height: 18px; flex: none; }
+.voice-option .text { flex: 1; min-width: 0; }
+.voice-option strong { display: block; font-size: 14px; font-weight: 500; }
+.voice-option span.desc { display: block; font-size: 13px; color: var(--muted); }
+.voice-option .play { flex: none; width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: 50%; background: var(--surface); color: var(--text); cursor: pointer; }
+.voice-option .play svg { width: 14px; height: 14px; }
+
+.danger { border-color: color-mix(in srgb, #c0392b 45%, var(--border)); }
+.danger h2 svg { color: #c0392b; }
+.danger form { display: grid; gap: 6px; }
+.danger form > div { display: grid; gap: 6px; }
+.btn-danger { background: #c0392b; border-color: #c0392b; color: #fff; justify-self: start; margin-top: 6px; }
+.btn-danger:hover { background: #a93226; }
+.btn-danger:disabled { opacity: .5; }
+.danger-outline { color: #c0392b; }
+.status { min-height: 1.5em; font-size: 14px; }

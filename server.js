@@ -7,6 +7,7 @@
 //   /api/transcribe -> turns a voice recording into text (Groq Whisper)
 //   /api/title    -> a short title for a new chat, based on its first message
 //   /api/speak    -> reads text aloud with ElevenLabs (voice mode)
+//   /api/voices   -> the ElevenLabs voices people can pick in Settings
 
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
@@ -20,7 +21,7 @@ const PUBLIC_DIR = join(dirname(fileURLToPath(import.meta.url)), "public");
 const PORT = process.env.PORT || 3000;
 const TYPES = {
   ".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".svg": "image/svg+xml",
-  ".png": "image/png", ".webmanifest": "application/manifest+json",
+  ".png": "image/png", ".webmanifest": "application/manifest+json", ".txt": "text/plain", ".xml": "application/xml",
 };
 
 async function readJson(req) {
@@ -103,12 +104,14 @@ async function handleSpeak(req, res) {
   if (!process.env.ELEVENLABS_API_KEY) return res.writeHead(503, { "Content-Type": "text/plain" }).end("ElevenLabs is not set up");
   const wait = await limited(req);
   if (wait) return tooMany(res, wait);
-  const { text = "" } = await readJson(req);
+  const { text = "", voiceId } = await readJson(req);
   const clean = String(text).trim().slice(0, MAX_SPEAK_CHARS);
+  // A voice picked in Settings (ElevenLabs voice IDs are short letters/numbers), otherwise the default.
+  const voice = typeof voiceId === "string" && /^[A-Za-z0-9]{10,40}$/.test(voiceId) ? voiceId : ELEVENLABS_VOICE_ID;
   if (!clean) return res.writeHead(400).end("Nothing to say");
 
   const response = await fetch(
-    `https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}/stream?output_format=mp3_44100_64`,
+    `https://api.elevenlabs.io/v1/text-to-speech/${voice}/stream?output_format=mp3_44100_64`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json", "xi-api-key": process.env.ELEVENLABS_API_KEY },
@@ -123,6 +126,34 @@ async function handleSpeak(req, res) {
   res.writeHead(200, { "Content-Type": "audio/mpeg", "Cache-Control": "no-store" });
   for await (const chunk of response.body) res.write(chunk); // stream: playback can start before it's all generated
   res.end();
+}
+
+// The voices on the ElevenLabs account (cached for an hour; listing voices costs no credits).
+let voicesCache = { list: null, expires: 0 };
+async function handleVoices(req, res) {
+  if (!process.env.ELEVENLABS_API_KEY) return res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify({ voices: [] }));
+  if (!voicesCache.list || Date.now() > voicesCache.expires) {
+    const response = await fetch("https://api.elevenlabs.io/v1/voices", { headers: { "xi-api-key": process.env.ELEVENLABS_API_KEY } });
+    if (!response.ok) {
+      // e.g. 401: the key may speak but not list voices (ElevenLabs key permission "Voices: Read").
+      // Still offer the default voice so people can choose between it and the browser voice.
+      console.error("ElevenLabs voices list failed", response.status);
+      const fallback = [{ id: ELEVENLABS_VOICE_ID, name: "ElevenLabs voice", description: "Natural AI voice", preview: null, default: true }];
+      return res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify({ voices: fallback, limited: true }));
+    }
+    const { voices = [] } = await response.json();
+    voicesCache = {
+      expires: Date.now() + 3_600_000,
+      list: voices.slice(0, 40).map((v) => ({
+        id: v.voice_id,
+        name: v.name,
+        description: [v.labels?.gender, v.labels?.accent, v.labels?.description || v.labels?.descriptive].filter(Boolean).join(" · "),
+        preview: v.preview_url || null,
+        default: v.voice_id === ELEVENLABS_VOICE_ID,
+      })),
+    };
+  }
+  res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify({ voices: voicesCache.list }));
 }
 
 async function handleTranscribe(req, res) {
@@ -227,7 +258,10 @@ async function handleChat(req, res) {
 }
 
 async function serveFile(pathname, res) {
-  const routes = { "/": "/index.html", "/app": "/app.html", "/signin": "/signin.html" };
+  const routes = {
+    "/": "/index.html", "/app": "/app.html", "/signin": "/signin.html", "/settings": "/settings.html",
+    "/privacy": "/privacy.html", "/terms": "/terms.html", "/cli-login": "/cli-login.html",
+  };
   const file = normalize(join(PUBLIC_DIR, routes[pathname] || pathname));
   if (!file.startsWith(PUBLIC_DIR)) {
     res.writeHead(403).end();
@@ -238,7 +272,9 @@ async function serveFile(pathname, res) {
     res.writeHead(200, { "Content-Type": TYPES[extname(file)] || "application/octet-stream" });
     res.end(content);
   } catch {
-    res.writeHead(404, { "Content-Type": "text/plain" }).end("Not found");
+    // Friendly "page not found" page for browsers; plain text for everything else.
+    const page = await readFile(join(PUBLIC_DIR, "404.html")).catch(() => "Not found");
+    res.writeHead(404, { "Content-Type": "text/html" }).end(page);
   }
 }
 
@@ -249,6 +285,7 @@ async function route(req, res) {
   if (req.method === "POST" && pathname === "/api/transcribe") return handleTranscribe(req, res);
   if (req.method === "POST" && pathname === "/api/title") return handleTitle(req, res);
   if (req.method === "POST" && pathname === "/api/speak") return handleSpeak(req, res);
+  if (pathname === "/api/voices") return handleVoices(req, res);
   if (pathname === "/api/models") {
     const list = (await getModels()).map((m) => ({ ...m, ready: isConfigured(m.provider) }));
     res.writeHead(200, { "Content-Type": "application/json" });

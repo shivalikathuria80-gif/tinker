@@ -111,13 +111,22 @@ function pickVoice() {
 
 // ElevenLabs voice (through our server, which keeps the key secret). Returns false if it couldn't play.
 let elevenLabsReady = true; // becomes false if the server says ElevenLabs isn't set up
+
+// The voice picked in Settings: "browser", an ElevenLabs voice ID, or nothing (= the default ElevenLabs voice).
+function voicePreference() {
+  try {
+    return localStorage.getItem("tinker.voice") || "";
+  } catch {
+    return "";
+  }
+}
 let currentAudio = null;
 
 async function speakWithElevenLabs(text) {
   const response = await fetch("/api/speak", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...(await authHeaders()) },
-    body: JSON.stringify({ text }),
+    body: JSON.stringify({ text, voiceId: voicePreference() || undefined }),
   });
   if (response.status === 503) elevenLabsReady = false;
   if (!response.ok) return false;
@@ -137,7 +146,7 @@ async function speakWithElevenLabs(text) {
 async function speak(text) {
   if (!text) return;
   voice.speaking = true;
-  if (elevenLabsReady) {
+  if (elevenLabsReady && voicePreference() !== "browser") {
     const played = await speakWithElevenLabs(text).catch(() => false);
     if (played) {
       voice.speaking = false;

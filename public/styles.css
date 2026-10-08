@@ -17,8 +17,10 @@
   color-scheme: light;
 }
 
+/* Dark colors: used when the computer is in dark mode (unless the user picked "Light" in Settings),
+   or always when the user picked "Dark". theme.js sets data-theme on <html>. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #161514;
     --surface: #1e1d1b;
     --surface-2: #262523;
@@ -30,6 +32,18 @@
     --code-bg: #0f0e0d;
     color-scheme: dark;
   }
+}
+:root[data-theme="dark"] {
+  --bg: #161514;
+  --surface: #1e1d1b;
+  --surface-2: #262523;
+  --border: #34322f;
+  --text: #ecebe8;
+  --muted: #a19d96;
+  --accent: #e07a5f;
+  --accent-text: #1a1007;
+  --code-bg: #0f0e0d;
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -246,3 +260,4 @@ select.model {
 .voice-actions .btn[aria-pressed="true"] { border-color: #e07a5f; color: #e07a5f; }
 .voice-hint { font-size: 13px; color: #9a958d; margin: 0; }
 @media (prefers-reduced-motion: reduce) { .orb-core { transition: none; } }
+.settings-link { margin-bottom: 8px; width: 100%; }

@@ -8,6 +8,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebas
 import {
   getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut,
   createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, updateProfile,
+  deleteUser, reauthenticateWithPopup, reauthenticateWithCredential, EmailAuthProvider,
 } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
 import { getFirestore, collection, doc, getDocs, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
 
@@ -44,5 +45,24 @@ window.tinkerCloud = {
   },
   saveChat: (chat) => setDoc(doc(chatsOf(auth.currentUser.uid), chat.id), JSON.parse(JSON.stringify(chat))),
   deleteChat: (id) => deleteDoc(doc(chatsOf(auth.currentUser.uid), id)),
+
+  // ---------- Settings ----------
+  updateName: (name) => updateProfile(auth.currentUser, { displayName: name }),
+  usesPassword: () => auth.currentUser?.providerData.some((p) => p.providerId === "password") ?? false,
+
+  // Firebase asks for a fresh sign-in before deleting an account (a safety rule).
+  async confirmIdentity(password) {
+    const user = auth.currentUser;
+    if (user.providerData.some((p) => p.providerId === "google.com")) return reauthenticateWithPopup(user, new GoogleAuthProvider());
+    return reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password));
+  },
+
+  // Deletes every saved chat, then the account itself.
+  async deleteAccount() {
+    const user = auth.currentUser;
+    const snapshot = await getDocs(chatsOf(user.uid));
+    await Promise.all(snapshot.docs.map((d) => deleteDoc(d.ref)));
+    await deleteUser(user);
+  },
 };
 window.dispatchEvent(new Event("tinker-cloud-ready"));

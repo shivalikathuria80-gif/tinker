@@ -2,7 +2,7 @@
 // Pages and files are always fetched fresh when online (network first); the saved copy is only used offline.
 // API calls (/api/...) are never cached.
 
-const CACHE = "tinker-v3";
+const CACHE = "tinker-v4";
 const SHELL = ["/", "/app", "/styles.css", "/landing.css", "/app.js", "/landing.js", "/voice.js", "/icon-192.png", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
